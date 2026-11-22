@@ -1,0 +1,70 @@
+# Version pour le « Docker Manager » de Hostinger : aucun fichier local nécessaire.
+# L'image est construite par GitHub (.github/workflows/image.yml) et publiée sur ghcr.io.
+# Les variables (secrets compris) sont fournies par Hostinger, jamais écrites ici.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_DB: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/honorat2025/agbeci-crm:latest
+    pull_policy: always
+    restart: unless-stopped
+    environment: &appenv
+      APP_URL: ${APP_URL}
+      DATABASE_URL: postgres://crm:${POSTGRES_PASSWORD}@db:5432/crm
+      SESSION_SECRET: ${SESSION_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      SETUP_TOKEN: ${SETUP_TOKEN}
+      GMAIL_ADDRESS: ${GMAIL_ADDRESS}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT}
+      DAILY_SEND_LIMIT: ${DAILY_SEND_LIMIT}
+      SEND_INTERVAL_MS: ${SEND_INTERVAL_MS}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      WP_SHARED_SECRET: ${WP_SHARED_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/honorat2025/agbeci-crm:latest
+    pull_policy: always
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment: *appenv
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: ["caddy", "reverse-proxy", "--from", "${CRM_DOMAIN}", "--to", "app:3000"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

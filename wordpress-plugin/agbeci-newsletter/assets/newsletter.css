@@ -1,0 +1,53 @@
+/* Agbeci Newsletter : style sobre qui hérite des polices du thème. */
+.agbeci-nl {
+  box-sizing: border-box;
+  margin: 2.5em 0 1em;
+  padding: 1.5em;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(31, 78, 121, 0.05);
+  max-width: 100%;
+}
+.agbeci-nl *, .agbeci-nl *::before, .agbeci-nl *::after { box-sizing: border-box; }
+.agbeci-nl__title { margin: 0 0 0.3em; font-size: 1.25em; font-weight: 700; }
+.agbeci-nl__intro { margin: 0 0 1em; }
+.agbeci-nl__fields { display: flex; flex-wrap: wrap; gap: 0.6em; }
+.agbeci-nl__fields input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 0.7em 0.8em;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  color: #1f1f1f;
+}
+.agbeci-nl__fields button {
+  flex: 0 0 auto;
+  padding: 0.7em 1.3em;
+  border: 0;
+  border-radius: 6px;
+  background: #1f4e79;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.agbeci-nl__fields button:hover { background: #173b5c; }
+.agbeci-nl__fields button:disabled { opacity: 0.6; cursor: wait; }
+.agbeci-nl__consent { display: flex; gap: 0.5em; align-items: flex-start; margin-top: 0.8em; font-size: 0.9em; line-height: 1.4; }
+.agbeci-nl__consent input { margin-top: 0.2em; flex: 0 0 auto; }
+.agbeci-nl__msg { margin: 0.8em 0 0; min-height: 1.2em; font-size: 0.95em; }
+.agbeci-nl__msg--success { color: #1d6b35; font-weight: 600; }
+.agbeci-nl__msg--error { color: #a32020; }
+.agbeci-nl__sr, .agbeci-nl__hp {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .agbeci-nl { padding: 1.1em; }
+  .agbeci-nl__fields button { flex: 1 1 100%; }
+}

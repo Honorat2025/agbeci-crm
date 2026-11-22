@@ -1,0 +1,55 @@
+# Lancement sur le serveur : docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_DB: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Renseignez POSTGRES_PASSWORD dans .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: ["npm", "run", "worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN:-crm.honoratagbeci.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
