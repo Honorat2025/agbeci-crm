@@ -11,19 +11,30 @@ import { env } from "@/lib/env";
 const TICK_MS = 30_000;
 let stopping = false;
 
-async function tick(mailer: ReturnType<typeof createMailer>) {
+let lastMode = "";
+
+async function tick() {
+  const { mailer, mode } = await createMailer();
+  if (mode !== lastMode) {
+    console.log(`Mode d'envoi : ${mode}.`);
+    lastMode = mode;
+  }
+  // En mode simulé, on laisse les emails en attente : ils partiront dès que Gmail sera branché.
+  if (mode === "simulé" && process.env.NODE_ENV === "production") {
+    await markFinishedNewsletters();
+    return;
+  }
   const sent = await processOutbox(mailer, { max: 50, intervalMs: env.sendIntervalMs });
   await markFinishedNewsletters();
   if (sent > 0) console.log(`${sent} email(s) envoyé(s).`);
 }
 
 async function main() {
-  const mailer = createMailer();
-  console.log(`Worker démarré (envoi : ${env.mailTransport}, limite : ${env.dailySendLimit} par 24 h).`);
+  console.log(`Worker démarré (limite : ${env.dailySendLimit} emails par 24 h).`);
   await recoverStuck();
   while (!stopping) {
     try {
-      await tick(mailer);
+      await tick();
     } catch (err) {
       console.error("Erreur du worker :", err);
     }

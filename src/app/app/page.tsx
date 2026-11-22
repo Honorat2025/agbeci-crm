@@ -4,6 +4,7 @@ import { getDb, schema } from "@/db";
 import { env } from "@/lib/env";
 import { requireAdmin } from "@/lib/guard";
 import { outboxStats, remainingQuota, sentInLast24h } from "@/lib/queue";
+import { getMailSettings } from "@/lib/settings";
 
 export default async function Dashboard() {
   await requireAdmin();
@@ -25,6 +26,7 @@ export default async function Dashboard() {
 
   const sent24 = await sentInLast24h();
   const queue = await outboxStats();
+  const mail = await getMailSettings();
 
   return (
     <>
@@ -39,6 +41,12 @@ export default async function Dashboard() {
         </div>
       </div>
 
+      {!mail.configured && (
+        <p className="notice">
+          Gmail n&apos;est pas encore branché : aucun email ne part pour l&apos;instant.{" "}
+          <Link href="/app/reglages">Brancher Gmail</Link>
+        </p>
+      )}
       {queue.failed > 0 && (
         <p className="notice">{queue.failed} email(s) n&apos;ont pas pu partir après plusieurs essais.</p>
       )}

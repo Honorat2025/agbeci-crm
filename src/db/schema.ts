@@ -119,3 +119,13 @@ export const outbox = pgTable(
 export type Contact = typeof contacts.$inferSelect;
 export type Newsletter = typeof newsletters.$inferSelect;
 export type OutboxRow = typeof outbox.$inferSelect;
+
+/**
+ * Réglages modifiables depuis l'application (ex. connexion Gmail).
+ * Les valeurs sensibles sont chiffrées avant d'être enregistrées.
+ */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

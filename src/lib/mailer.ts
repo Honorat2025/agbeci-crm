@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
-import { env } from "./env";
+import { getMailSettings } from "./settings";
 
 export type OutgoingMail = {
   to: string;
@@ -18,21 +18,22 @@ export interface Mailer {
 export class GmailMailer implements Mailer {
   private transporter: Transporter;
 
-  constructor() {
-    if (!env.gmailAddress || !env.gmailAppPassword) {
-      throw new Error("GMAIL_ADDRESS et GMAIL_APP_PASSWORD sont nécessaires pour envoyer des emails.");
-    }
+  constructor(
+    private readonly address: string,
+    password: string,
+    private readonly fromName: string,
+  ) {
     this.transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
-      auth: { user: env.gmailAddress, pass: env.gmailAppPassword },
+      auth: { user: address, pass: password },
     });
   }
 
   async send(mail: OutgoingMail) {
     const info = await this.transporter.sendMail({
-      from: { name: env.mailFromName, address: env.gmailAddress },
+      from: { name: this.fromName, address: this.address },
       to: mail.to,
       subject: mail.subject,
       html: mail.html,
@@ -53,6 +54,14 @@ export class LogMailer implements Mailer {
   }
 }
 
-export function createMailer(): Mailer {
-  return env.mailTransport === "smtp" ? new GmailMailer() : new LogMailer();
+/**
+ * Gmail si une connexion est enregistrée (page Réglages ou variables du serveur),
+ * sinon envoi simulé. Relu à chaque passage du worker pour prendre en compte
+ * un changement de réglages sans redémarrer.
+ */
+export async function createMailer(): Promise<{ mailer: Mailer; mode: "gmail" | "simulé" }> {
+  const s = await getMailSettings();
+  return s.configured
+    ? { mailer: new GmailMailer(s.address, s.password, s.fromName), mode: "gmail" }
+    : { mailer: new LogMailer(), mode: "simulé" };
 }

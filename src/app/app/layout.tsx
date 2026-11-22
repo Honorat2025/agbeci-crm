@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/app">Tableau de bord</Link>
         <Link href="/app/abonnes">Abonnés</Link>
         <Link href="/app/newsletters">Newsletters</Link>
+        <Link href="/app/reglages">Réglages</Link>
         <form action="/deconnexion" method="post">
           <button className="btn secondary" type="submit">Se déconnecter</button>
         </form>

@@ -10,12 +10,15 @@ import { eq } from "drizzle-orm";
 const url = process.env.TEST_DATABASE_URL;
 process.env.DATABASE_URL = url;
 process.env.APP_URL = "https://crm.example.test";
+process.env.ENCRYPTION_KEY ??= "test-encryption-key-0123456789abcdef";
+delete process.env.MAIL_TRANSPORT;
 
 import { getDb, getSql, closeDb, schema } from "../src/db";
 import { subscribe, confirmSubscription, unsubscribe } from "../src/lib/subscribers";
 import { createNewsletter, queueNewsletter, markFinishedNewsletters, draftFromWordPressPost } from "../src/lib/newsletters";
 import { processOutbox } from "../src/lib/queue";
-import { LogMailer } from "../src/lib/mailer";
+import { LogMailer, createMailer } from "../src/lib/mailer";
+import { getMailSettings, saveMailSettings, normalizeAppPassword } from "../src/lib/settings";
 
 const skip = !url && "TEST_DATABASE_URL non défini";
 
@@ -91,4 +94,31 @@ test("un article WordPress crée un seul brouillon", { skip }, async () => {
   assert.equal(a.id, b.id);
   assert.equal(a.status, "draft");
   assert.match(a.bodyMarkdown, /Lire l'article/);
+});
+
+test("réglages Gmail : mot de passe chiffré en base, envoi réel activé", { skip }, async () => {
+  const before = await createMailer();
+  assert.equal(before.mode, "simulé");
+
+  const password = normalizeAppPassword("abcd efgh ijkl mnop");
+  assert.equal(password, "abcdefghijklmnop");
+  await saveMailSettings({ address: "honorat@example.test", password, fromName: "Honorat" });
+
+  const [row] = await getDb()
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, "gmail_app_password_enc"));
+  assert.ok(row && !row.value.includes(password), "le mot de passe ne doit pas être stocké en clair");
+
+  const s = await getMailSettings();
+  assert.equal(s.configured, true);
+  assert.equal(s.password, password);
+  assert.equal(s.source, "application");
+
+  // Sans nouveau mot de passe, l'ancien est conservé.
+  await saveMailSettings({ address: "honorat@example.test", fromName: "Honorat A." });
+  const s2 = await getMailSettings();
+  assert.equal(s2.password, password);
+  assert.equal(s2.fromName, "Honorat A.");
+  assert.equal((await createMailer()).mode, "gmail");
 });
