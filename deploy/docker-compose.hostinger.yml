@@ -1,5 +1,5 @@
 # Version pour le « Docker Manager » de Hostinger : aucun fichier local nécessaire.
-# L'image est construite directement depuis le dépôt GitHub (branche main).
+# L'image est construite par GitHub (.github/workflows/image.yml) et publiée sur ghcr.io.
 # Les variables (secrets compris) sont fournies par Hostinger, jamais écrites ici.
 services:
   db:
@@ -18,10 +18,8 @@ services:
       retries: 10
 
   app:
-    image: agbeci-crm:latest
-    build: &build https://github.com/Honorat2025/agbeci-crm.git#main
-    # Le Docker Manager tente d'abord de télécharger l'image : on lui dit de la construire.
-    pull_policy: build
+    image: ghcr.io/honorat2025/agbeci-crm:latest
+    pull_policy: always
     restart: unless-stopped
     environment: &appenv
       APP_URL: ${APP_URL}
@@ -42,9 +40,8 @@ services:
         condition: service_healthy
 
   worker:
-    image: agbeci-crm:latest
-    build: *build
-    pull_policy: build
+    image: ghcr.io/honorat2025/agbeci-crm:latest
+    pull_policy: always
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment: *appenv
