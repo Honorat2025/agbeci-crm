@@ -1,0 +1,48 @@
+{
+  "name": "agbeci-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CRM-messagerie personnel d'Honorat AGBECI : newsletter, contacts, prospection.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx src/worker/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "next": "15.5.29",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "drizzle-orm": "0.45.4",
+    "postgres": "3.4.7",
+    "nodemailer": "10.3.1",
+    "otplib": "12.0.1",
+    "bcryptjs": "3.0.2",
+    "iron-session": "8.0.4",
+    "zod": "4.6.7",
+    "qrcode": "1.5.4",
+    "marked": "16.2.1",
+    "sanitize-html": "2.18.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.4",
+    "typescript": "5.9.2",
+    "tsx": "4.20.5",
+    "@types/node": "22.18.0",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "@types/nodemailer": "7.0.1",
+    "@types/qrcode": "1.5.5",
+    "@types/sanitize-html": "2.16.0"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
+  }
+}

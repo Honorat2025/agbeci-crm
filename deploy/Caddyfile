@@ -1,0 +1,6 @@
+# Caddy obtient et renouvelle tout seul le certificat HTTPS (Let's Encrypt).
+{$CRM_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy app:3000
+}
