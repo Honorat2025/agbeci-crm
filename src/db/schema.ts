@@ -1,5 +1,7 @@
 import {
   pgTable,
+  boolean,
+  bigint,
   serial,
   integer,
   text,
@@ -53,6 +55,12 @@ export const contacts = pgTable(
     confirmTokenExpiresAt: timestamp("confirm_token_expires_at", { withTimezone: true }),
     /** Jeton aléatoire et stable pour le lien de désinscription. */
     unsubscribeToken: text("unsubscribe_token").notNull(),
+    /** Fiche CRM : coordonnées et classement. */
+    company: text("company"),
+    jobTitle: text("job_title"),
+    phone: text("phone"),
+    country: text("country"),
+    tags: text("tags").array().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -81,7 +89,7 @@ export const newsletters = pgTable("newsletters", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
 });
 
-export const emailKind = pgEnum("email_kind", ["confirm", "welcome", "newsletter", "test"]);
+export const emailKind = pgEnum("email_kind", ["confirm", "welcome", "newsletter", "test", "personal"]);
 export const outboxStatus = pgEnum("outbox_status", ["pending", "sending", "sent", "failed"]);
 
 /**
@@ -102,6 +110,8 @@ export const outbox = pgTable(
     headers: jsonb("headers").$type<Record<string, string>>().notNull().default({}),
     /** Plus grand = envoyé en premier (confirmations avant newsletters). */
     priority: integer("priority").notNull().default(0),
+    /** Copies et en-têtes de réponse, pour les emails personnels. */
+    cc: text("cc"),
     status: outboxStatus("status").notNull().default("pending"),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
@@ -129,3 +139,88 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Emails de Gmail recopiés dans le CRM (dossier « Tous les messages »).
+ * Gmail reste la référence : le CRM ne supprime jamais rien chez Gmail.
+ */
+export const mailMessages = pgTable(
+  "mail_messages",
+  {
+    id: serial("id").primaryKey(),
+    /** Identifiant Gmail du message (X-GM-MSGID), stable même si le message change de libellé. */
+    gmailId: text("gmail_id").notNull(),
+    /** Identifiant Gmail de la conversation (X-GM-THRID). */
+    threadId: text("thread_id").notNull(),
+    uid: integer("uid").notNull(),
+    messageIdHeader: text("message_id_header"),
+    inReplyTo: text("in_reply_to"),
+    references: text("references"),
+    fromEmail: text("from_email").notNull().default(""),
+    fromName: text("from_name"),
+    to: jsonb("to").$type<{ name?: string; address: string }[]>().notNull().default([]),
+    cc: jsonb("cc").$type<{ name?: string; address: string }[]>().notNull().default([]),
+    /** Toutes les adresses du message, en minuscules, pour retrouver l'historique d'un contact. */
+    participants: text("participants").array().notNull().default([]),
+    subject: text("subject").notNull().default(""),
+    snippet: text("snippet").notNull().default(""),
+    textBody: text("text_body").notNull().default(""),
+    htmlBody: text("html_body"),
+    attachments: jsonb("attachments").$type<{ filename: string; size: number; contentType: string }[]>().notNull().default([]),
+    labels: text("labels").array().notNull().default([]),
+    /** Vrai quand Honorat est l'expéditeur. */
+    outgoing: boolean("outgoing").notNull().default(false),
+    seen: boolean("seen").notNull().default(false),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("mail_messages_gmail_id_unique").on(t.gmailId),
+    index("mail_messages_thread_idx").on(t.threadId, t.date),
+    index("mail_messages_date_idx").on(t.date),
+    index("mail_messages_uid_idx").on(t.uid),
+    index("mail_messages_participants_idx").using("gin", t.participants),
+  ],
+);
+
+/** Où en est la recopie de Gmail (une seule ligne, id = 1). */
+export const mailSync = pgTable("mail_sync", {
+  id: integer("id").primaryKey(),
+  account: text("account").notNull(),
+  mailbox: text("mailbox").notNull(),
+  uidValidity: text("uid_validity").notNull(),
+  /** Plus grand UID déjà recopié (messages récents). */
+  lastUid: integer("last_uid").notNull().default(0),
+  /** Plus petit UID déjà recopié (rattrapage de l'historique, vers le passé). */
+  backfillBeforeUid: integer("backfill_before_uid").notNull(),
+  backfillDone: boolean("backfill_done").notNull().default(false),
+  highestModseq: bigint("highest_modseq", { mode: "bigint" }),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }),
+});
+
+/** Actions à reporter dans Gmail par le worker (ex. marquer comme lu). */
+export const mailActions = pgTable("mail_actions", {
+  id: serial("id").primaryKey(),
+  action: text("action").notNull(),
+  uids: integer("uids").array().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Notes libres sur un contact. */
+export const contactNotes = pgTable(
+  "contact_notes",
+  {
+    id: serial("id").primaryKey(),
+    contactId: integer("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("contact_notes_contact_idx").on(t.contactId, t.createdAt)],
+);
+
+export type MailMessage = typeof mailMessages.$inferSelect;
+export type ContactNote = typeof contactNotes.$inferSelect;

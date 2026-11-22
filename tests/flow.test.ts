@@ -122,3 +122,108 @@ test("réglages Gmail : mot de passe chiffré en base, envoi réel activé", { s
   assert.equal(s2.fromName, "Honorat A.");
   assert.equal((await createMailer()).mode, "gmail");
 });
+
+test("messagerie : conversations, lecture, réponse, fiches", { skip }, async () => {
+  const { storeRows, markThreadSeen } = await import("../src/lib/mailbox");
+  const { listThreads, getThread, queueReply, queueNewMessage, unseenInboxCount } = await import("../src/lib/messages");
+  const { suggestedContacts, ensureContact, addNote, listNotes, exchangeStats } = await import("../src/lib/contacts");
+  const db = getDb();
+  const own = "honorat@example.test"; // adresse enregistrée dans le test précédent
+  const base = {
+    to: [] as { address: string; name?: string }[],
+    cc: [] as { address: string; name?: string }[],
+    textBody: "",
+    snippet: "",
+    attachments: [],
+    references: null,
+    inReplyTo: null,
+  };
+  await storeRows([
+    { ...base, gmailId: "m1", threadId: "t1", uid: 1, messageIdHeader: "<m1@x>", fromEmail: "awa@partenaire.ci", fromName: "Awa Koné",
+      to: [{ address: own }], participants: ["awa@partenaire.ci", own], subject: "Étude au Togo", textBody: "Bonjour,\npouvez-vous m'aider ?",
+      snippet: "Bonjour, pouvez-vous m'aider ?", labels: ["\\Inbox"], outgoing: false, seen: false, date: new Date("2026-11-20T10:00:00Z") },
+    { ...base, gmailId: "m2", threadId: "t1", uid: 2, messageIdHeader: "<m2@x>", references: "<m1@x>", fromEmail: own, fromName: "Honorat",
+      to: [{ address: "awa@partenaire.ci", name: "Awa Koné" }], participants: [own, "awa@partenaire.ci"], subject: "Re: Étude au Togo",
+      snippet: "Avec plaisir", textBody: "Avec plaisir", labels: ["\\Sent"], outgoing: true, seen: true, date: new Date("2026-11-20T12:00:00Z") },
+    { ...base, gmailId: "m3", threadId: "t2", uid: 3, fromEmail: "no-reply@banque.fr", to: [{ address: own }],
+      participants: ["no-reply@banque.fr", own], subject: "Relevé", labels: ["\\Inbox"], outgoing: false, seen: true, date: new Date("2026-11-21T08:00:00Z") },
+  ]);
+  // Une seconde recopie du même message ne crée pas de doublon.
+  await storeRows([{ ...base, gmailId: "m3", threadId: "t2", uid: 3, fromEmail: "no-reply@banque.fr", participants: [], subject: "Relevé", labels: ["\\Inbox"], outgoing: false, seen: true, date: new Date() }]);
+
+  const inbox = await listThreads({ folder: "reception" });
+  assert.deepEqual(inbox.threads.map((t) => t.threadId), ["t2", "t1"]);
+  const t1 = inbox.threads.find((t) => t.threadId === "t1")!;
+  assert.equal(t1.count, 2);
+  assert.equal(t1.unseen, 1);
+  assert.equal(t1.subject, "Étude au Togo");
+  assert.deepEqual(t1.people, ["Awa Koné"]);
+  assert.equal(t1.outgoingLast, true);
+  assert.deepEqual((await listThreads({ folder: "envoyes" })).threads.map((t) => t.threadId), ["t1"]);
+  assert.deepEqual((await listThreads({ folder: "tous", q: "togo" })).threads.map((t) => t.threadId), ["t1"]);
+  assert.equal(await unseenInboxCount(), 1);
+
+  assert.equal(await markThreadSeen("t1"), 1);
+  assert.equal(await unseenInboxCount(), 0);
+  const [action] = await db.select().from(schema.mailActions);
+  assert.deepEqual(action!.uids, [1]);
+
+  await queueReply({ threadId: "t1", to: "awa@partenaire.ci", body: "Voici le devis." });
+  const [reply] = await db.select().from(schema.outbox).where(eq(schema.outbox.kind, "personal"));
+  assert.equal(reply!.subject, "Re: Étude au Togo");
+  assert.equal(reply!.headers["In-Reply-To"], "<m2@x>");
+  assert.equal(reply!.headers["References"], "<m1@x> <m2@x>");
+  assert.equal(reply!.headers["List-Unsubscribe"], undefined, "pas de lien de désinscription sur un email personnel");
+  assert.match(reply!.text, /Voici le devis\.\n\nLe .* Honorat a écrit :\n> Avec plaisir/);
+
+  await queueNewMessage({ to: "nouveau@exemple.sn", cc: "copie@exemple.sn", subject: "Bonjour", body: "Premier contact" });
+  const mailer = new LogMailer();
+  await processOutbox(mailer, { dailyLimit: 400 });
+  const sentPersonal = mailer.sent.filter((m) => m.subject === "Bonjour" || m.subject === "Re: Étude au Togo");
+  assert.equal(sentPersonal.length, 2);
+  assert.equal(sentPersonal.find((m) => m.subject === "Bonjour")!.cc, "copie@exemple.sn");
+
+  // Suggestions : les personnes à qui Honorat a écrit, sans les robots.
+  const sugg = await suggestedContacts();
+  assert.deepEqual(sugg.map((s) => s.address), ["awa@partenaire.ci"]);
+  const created = await ensureContact("Awa@Partenaire.ci", { firstName: "Awa", lastName: "Koné", source: "gmail", tags: ["client"] });
+  assert.equal(created.created, true);
+  const again = await ensureContact("awa@partenaire.ci", { firstName: "Autre", company: "OMS", source: "gmail", tags: ["togo"] });
+  assert.deepEqual(again, { id: created.id, created: false });
+  const [c] = await db.select().from(schema.contacts).where(eq(schema.contacts.id, created.id));
+  assert.equal(c!.firstName, "Awa", "un prénom existant n'est pas écrasé");
+  assert.equal(c!.company, "OMS", "un champ vide est complété");
+  assert.deepEqual(c!.tags, ["client", "togo"]);
+  assert.equal(c!.newsletterStatus, "none", "une fiche n'abonne jamais à la newsletter");
+  assert.deepEqual(await suggestedContacts(), []);
+
+  await addNote(created.id, "Appel prévu lundi");
+  assert.equal((await listNotes(created.id))[0]!.body, "Appel prévu lundi");
+  const st = await exchangeStats("awa@partenaire.ci");
+  assert.equal(st.count, 2);
+  assert.ok(st.last instanceof Date && !Number.isNaN(st.last.getTime()));
+  assert.deepEqual((await listThreads({ folder: "tous", participant: "awa@partenaire.ci" })).threads.map((t) => t.threadId), ["t1"]);
+  assert.equal((await getThread("t1")).length, 2);
+});
+
+test("le site WordPress peut créer des fiches (demandes de documents)", { skip }, async () => {
+  const { POST } = await import("../src/app/api/wp/contacts/route");
+  process.env.WP_SHARED_SECRET = "secret-de-test-0123456789abcdef0123";
+  const call = (body: unknown, secret = process.env.WP_SHARED_SECRET!) =>
+    POST(new Request("https://crm.example.test/api/wp/contacts", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-agbeci-secret": secret },
+      body: JSON.stringify(body),
+    }));
+  assert.equal((await call({ contacts: [] }, "mauvais")).status, 401);
+  const payload = { contacts: [{ email: "Lecteur@Example.com", name: "Kofi Mensah", note: "Demande du document : Guide ETS", tag: "document" }] };
+  const res = await call(payload);
+  assert.deepEqual(await res.json(), { ok: true, received: 1, created: 1 });
+  await call(payload); // rejouer ne crée ni doublon ni note en double
+  const [c] = await getDb().select().from(schema.contacts).where(eq(schema.contacts.email, "lecteur@example.com"));
+  assert.equal(c!.firstName, "Kofi");
+  assert.deepEqual(c!.tags, ["document"]);
+  assert.equal(c!.newsletterStatus, "none");
+  const notes = await getDb().select().from(schema.contactNotes).where(eq(schema.contactNotes.contactId, c!.id));
+  assert.equal(notes.length, 1);
+});

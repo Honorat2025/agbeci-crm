@@ -66,6 +66,39 @@ th { color: var(--muted); font-weight: 600; font-size: 0.9rem; }
 .preview { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .qr { background: #fff; padding: 12px; border-radius: 8px; display: inline-block; }
+.small { font-size: 0.88rem; }
+textarea.prose { font-family: inherit; font-size: 15px; min-height: 200px; }
+textarea.prose.short { min-height: 90px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.nav .count { display: inline-block; margin-left: 6px; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-text); font-size: 0.8rem; text-align: center; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 16px 0 12px; border-bottom: 1px solid var(--border); }
+.tabs a { padding: 8px 12px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a[aria-current=page] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.threads { padding: 0; overflow: hidden; }
+.threads h2 { padding: 20px 20px 0; }
+.threads > p { padding: 20px; margin: 0; }
+.threads ul { list-style: none; margin: 0; padding: 0; }
+.threads li + li { border-top: 1px solid var(--border); }
+.threads li a { display: grid; grid-template-columns: minmax(120px, 220px) 1fr auto; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); align-items: baseline; }
+.threads li a:hover { background: var(--bg); }
+.threads li .who, .threads li .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.threads li .what strong { font-weight: 500; }
+.threads li.unseen .who, .threads li.unseen .what strong { font-weight: 700; }
+.threads li .when { font-size: 0.85rem; white-space: nowrap; }
+.threads.compact li a { grid-template-columns: 1fr auto; }
+.threads.compact li .what { grid-column: auto; grid-row: auto; }
+.card.threads h2 + ul, .card.threads h2 + p { margin-top: 12px; }
+.message header { margin-bottom: 12px; align-items: flex-start; }
+.message.mine { border-left: 3px solid var(--accent); }
+.email-frame { width: 100%; border: 0; border-radius: 6px; background: #fff; display: block; }
+.plain { white-space: pre-wrap; word-wrap: break-word; }
+.people { margin: 8px 0 0; padding-left: 18px; }
+.tag { display: inline-block; margin: 0 4px 4px 0; padding: 1px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); font-size: 0.8rem; text-decoration: none; color: var(--text); }
+.note { border-top: 1px solid var(--border); padding: 12px 0 4px; }
+@media (max-width: 800px) {
+  .threads li a { grid-template-columns: 1fr auto; }
+  .threads li .what { grid-column: 1 / -1; grid-row: 2; }
+}
 @media (max-width: 800px) {
   .shell { flex-direction: column; }
   .nav { width: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; }

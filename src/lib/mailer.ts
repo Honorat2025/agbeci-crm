@@ -4,6 +4,7 @@ import { getMailSettings } from "./settings";
 
 export type OutgoingMail = {
   to: string;
+  cc?: string | null;
   subject: string;
   html: string;
   text: string;
@@ -35,6 +36,7 @@ export class GmailMailer implements Mailer {
     const info = await this.transporter.sendMail({
       from: { name: this.fromName, address: this.address },
       to: mail.to,
+      cc: mail.cc || undefined,
       subject: mail.subject,
       html: mail.html,
       text: mail.text,

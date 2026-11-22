@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { requireAdmin } from "@/lib/guard";
 import { outboxStats, remainingQuota, sentInLast24h } from "@/lib/queue";
 import { getMailSettings } from "@/lib/settings";
+import { unseenInboxCount } from "@/lib/messages";
 
 export default async function Dashboard() {
   await requireAdmin();
@@ -27,6 +28,7 @@ export default async function Dashboard() {
   const sent24 = await sentInLast24h();
   const queue = await outboxStats();
   const mail = await getMailSettings();
+  const unseen = mail.configured ? await unseenInboxCount() : 0;
 
   return (
     <>
@@ -51,6 +53,13 @@ export default async function Dashboard() {
         <p className="notice">{queue.failed} email(s) n&apos;ont pas pu partir après plusieurs essais.</p>
       )}
       {queue.pending > 0 && <p className="muted">{queue.pending} email(s) en attente d&apos;envoi.</p>}
+
+      {mail.configured && (
+        <p className="card">
+          {unseen > 0 ? <>Vous avez <strong>{unseen}</strong> conversation(s) non lue(s). </> : "Aucun email non lu. "}
+          <Link href="/app/messages">Ouvrir la messagerie</Link>
+        </p>
+      )}
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Derniers abonnés</h2>
