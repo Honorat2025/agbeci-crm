@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { requireAdmin } from "@/lib/guard";
+import { listContacts } from "@/lib/contacts";
+import { NewContactForm } from "./forms";
+
+const NEWSLETTER: Record<string, string> = {
+  subscribed: "Abonné",
+  pending: "En attente",
+  unsubscribed: "Désinscrit",
+  bounced: "Adresse invalide",
+};
+
+export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; tag?: string }> }) {
+  await requireAdmin();
+  const { q, tag } = await searchParams;
+  const rows = await listContacts({ q, tag });
+  return (
+    <>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h1 style={{ margin: 0 }}>Contacts</h1>
+        <div className="row">
+          <Link className="btn secondary" href="/app/contacts/suggestions">Suggestions</Link>
+          <Link className="btn secondary" href="/app/contacts/importer">Importer</Link>
+        </div>
+      </div>
+      <form className="row card" method="get" style={{ marginTop: 16 }}>
+        <input type="search" name="q" defaultValue={q} placeholder="Nom, email, organisation, pays…" style={{ flex: 1, minWidth: 200 }} />
+        {tag && <input type="hidden" name="tag" value={tag} />}
+        <button className="btn secondary">Chercher</button>
+        {tag && <Link href="/app/contacts">Retirer le filtre « {tag} »</Link>}
+      </form>
+
+      <div className="card" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? (
+          <p className="muted">
+            Aucune fiche pour l&apos;instant. Commencez par les <Link href="/app/contacts/suggestions">suggestions</Link> : les personnes à qui vous écrivez dans Gmail.
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Nom</th><th>Email</th><th className="hide-mobile">Organisation</th><th className="hide-mobile">Étiquettes</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <Link href={`/app/contacts/${c.id}`}>{[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}</Link>
+                    {NEWSLETTER[c.newsletterStatus] && <> <span className={`badge ${c.newsletterStatus}`}>{NEWSLETTER[c.newsletterStatus]}</span></>}
+                  </td>
+                  <td>{c.email}</td>
+                  <td className="hide-mobile">{c.company ?? ""}</td>
+                  <td className="hide-mobile">
+                    {c.tags.map((t) => (
+                      <Link key={t} className="tag" href={`/app/contacts?tag=${encodeURIComponent(t)}`}>{t}</Link>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Créer une fiche</h2>
+        <NewContactForm />
+      </div>
+    </>
+  );
+}

@@ -10,6 +10,9 @@ Application personnelle d'Honorat AGBECI : une messagerie de type CRM, indépend
 - **Newsletters** : rédaction simple (Markdown), aperçu, envoi de test à soi-même, puis envoi à tous les abonnés confirmés.
 - **Envoi par votre Gmail**, au rythme autorisé par Google (400 emails par 24 h par défaut), avec un lien de désinscription en un clic dans chaque email.
 - **Nouvel article sur WordPress** : un brouillon de newsletter est préparé automatiquement. Rien ne part sans votre validation.
+- **Messagerie** : vos emails Gmail (12 derniers mois, puis au fil de l'eau, relevés chaque minute) apparaissent dans le CRM, rangés par conversation. Vous pouvez y répondre ou écrire un nouveau message : il part depuis votre Gmail et se retrouve dans vos « Envoyés ». Les images externes (souvent des traceurs) sont masquées tant que vous ne demandez pas à les voir. Rien n'est jamais supprimé dans Gmail.
+- **Fiches contacts** : coordonnées, organisation, pays, étiquettes, notes, et l'historique des échanges avec chaque personne. Création en un clic depuis une conversation, suggestions (les personnes à qui vous écrivez), import d'un export Google Contacts (CSV). Une fiche n'abonne jamais à la newsletter.
+- **Demandes de documents du site** : le site peut créer des fiches par l'adresse `/api/wp/contacts` (protégée par la clé partagée).
 - **Connexion protégée** par mot de passe et code à deux étapes (application Google Authenticator ou équivalent).
 
 Prochaines étapes prévues : import des contacts Gmail, puis prospection (clients, emploi, consultations et prestations en Afrique).

@@ -5,7 +5,7 @@ import type { Mailer } from "./mailer";
 
 const { outbox } = schema;
 
-export const PRIORITY = { confirm: 100, welcome: 90, test: 80, newsletter: 0 } as const;
+export const PRIORITY = { confirm: 100, personal: 95, welcome: 90, test: 80, newsletter: 0 } as const;
 const MAX_ATTEMPTS = 5;
 
 /** Combien d'emails peuvent encore partir, compte tenu des envois des dernières 24 h. */
@@ -70,6 +70,7 @@ export async function processOutbox(
     try {
       await mailer.send({
         to: row.toEmail,
+        cc: row.cc,
         subject: row.subject,
         html: row.html,
         text: row.text,

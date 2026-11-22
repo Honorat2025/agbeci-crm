@@ -15,6 +15,13 @@
       "when": 1795378593226,
       "tag": "0001_cooing_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795384843496,
+      "tag": "0002_zippy_mongu",
+      "breakpoints": true
     }
   ]
 }
