@@ -19,7 +19,9 @@ services:
 
   app:
     image: agbeci-crm:latest
-    build: https://github.com/Honorat2025/agbeci-crm.git#main
+    build: &build https://github.com/Honorat2025/agbeci-crm.git#main
+    # Le Docker Manager tente d'abord de télécharger l'image : on lui dit de la construire.
+    pull_policy: build
     restart: unless-stopped
     environment: &appenv
       APP_URL: ${APP_URL}
@@ -41,6 +43,8 @@ services:
 
   worker:
     image: agbeci-crm:latest
+    build: *build
+    pull_policy: build
     restart: unless-stopped
     command: ["npm", "run", "worker"]
     environment: *appenv
