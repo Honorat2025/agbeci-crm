@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { addNote, deleteNote, ensureContact, parseContactsCsv, parseTags, splitName, updateContact } from "@/lib/contacts";
+import { addNote, deleteNote, NOTE_CHANNELS, type NoteChannel, ensureContact, parseContactsCsv, parseTags, splitName, updateContact } from "@/lib/contacts";
 import { emailSchema } from "@/lib/validation";
 
 export type FormState = { error?: string; ok?: string };
@@ -60,7 +60,9 @@ export async function saveNote(_: FormState, form: FormData): Promise<FormState>
   const body = String(form.get("body") ?? "").trim();
   if (!Number.isInteger(id)) return { error: "Fiche introuvable." };
   if (!body) return { error: "La note est vide." };
-  await addNote(id, body);
+  const raw = String(form.get("channel") ?? "note");
+  const channel: NoteChannel = raw in NOTE_CHANNELS ? (raw as NoteChannel) : "note";
+  await addNote(id, body, channel);
   revalidatePath(`/app/contacts/${id}`);
   return { ok: "Note ajoutée." };
 }

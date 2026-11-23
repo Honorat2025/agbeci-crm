@@ -219,6 +219,8 @@ export const contactNotes = pgTable(
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
+    /** Origine de l'échange noté : note libre, WhatsApp ou appel téléphonique. */
+    channel: text("channel", { enum: ["note", "whatsapp", "appel"] }).notNull().default("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("contact_notes_contact_idx").on(t.contactId, t.createdAt)],

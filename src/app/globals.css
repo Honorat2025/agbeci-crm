@@ -212,3 +212,9 @@ textarea.prose.short { min-height: 90px; }
   .cal-week .cal-items { flex: 1; min-width: 0; }
   .cal-title { width: 100%; margin: 6px 0 0; }
 }
+
+/* WhatsApp */
+.btn.whatsapp { background: #1f7a4d; border-color: #1f7a4d; color: #fff; }
+.badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin-bottom: 4px; background: var(--bg); border: 1px solid var(--border); }
+.badge.whatsapp { background: #e3f4ea; border-color: #b9e0c8; color: #1f5c3b; }
+@media (prefers-color-scheme: dark) { .badge.whatsapp { background: #17301f; border-color: #2c5a3c; color: #a6e3bd; } }

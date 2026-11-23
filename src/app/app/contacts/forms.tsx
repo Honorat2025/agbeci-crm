@@ -48,14 +48,23 @@ export function ContactForm({ initial }: { initial: ContactFields }) {
 export function NoteForm({ contactId }: { contactId: number }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveNote, {});
   const [body, setBody] = useState("");
+  const [channel, setChannel] = useState("note");
   useEffect(() => {
     if (state.ok) setBody("");
   }, [state]);
   return (
     <form action={action}>
       <input type="hidden" name="contactId" value={contactId} />
-      <label htmlFor="note">Nouvelle note</label>
-      <textarea id="note" name="body" className="prose short" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Ex. : appel le 22/11, intéressé par une consultation en avril." />
+      <fieldset className="plainset row" style={{ gap: 16 }}>
+        <legend>Nouvelle note</legend>
+        {([["note", "Note"], ["whatsapp", "Échange WhatsApp"], ["appel", "Appel téléphonique"]] as const).map(([k, l]) => (
+          <label key={k} className="choice" style={{ margin: 0 }}>
+            <input type="radio" name="channel" value={k} checked={channel === k} onChange={() => setChannel(k)} /> <span>{l}</span>
+          </label>
+        ))}
+      </fieldset>
+      <textarea id="note" aria-label="Texte de la note" name="body" className="prose short" value={body} onChange={(e) => setBody(e.target.value)}
+        placeholder={channel === "whatsapp" ? "Ex. : d'accord pour une visio la semaine prochaine, m'envoie son CV." : "Ex. : appel le 22/11, intéressé par une consultation en avril."} />
       {state.error && <p className="error">{state.error}</p>}
       <p><button className="btn secondary" disabled={pending || !body.trim()}>Ajouter la note</button></p>
     </form>

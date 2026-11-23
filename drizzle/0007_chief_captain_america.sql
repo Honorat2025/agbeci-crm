@@ -1,0 +1,1 @@
+ALTER TABLE "contact_notes" ADD COLUMN "channel" text DEFAULT 'note' NOT NULL;
