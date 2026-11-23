@@ -35,6 +35,8 @@ services:
       SEND_INTERVAL_MS: ${SEND_INTERVAL_MS}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       WP_SHARED_SECRET: ${WP_SHARED_SECRET}
+    volumes:
+      - backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +53,40 @@ services:
       app:
         condition: service_started
 
+  # Sauvegarde complète de la base chaque nuit (après 3 h, heure de Paris), gardée 14 jours.
+  # Les fichiers sont visibles et téléchargeables dans Réglages. Une copie ratée reste en .tmp
+  # (ignorée par l'application) et sera réécrite au prochain essai, 30 minutes plus tard.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: crm
+      PGDATABASE: crm
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Europe/Paris
+    volumes:
+      - backups:/backups
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "Sauvegardes : chaque nuit après 3 h, conservées 14 jours."
+        while true; do
+          f=/backups/crm-$$(date +%F).dump
+          if [ ! -s "$$f" ] && [ "$$(date +%H)" -ge 3 ]; then
+            if pg_dump -Fc -f "$$f.tmp"; then
+              mv "$$f.tmp" "$$f" && echo "Sauvegarde faite : $$f ($$(du -h "$$f" | cut -f1))"
+              find /backups -name 'crm-*.dump*' -mtime +14 -delete
+            else
+              echo "ÉCHEC de la sauvegarde $$f, nouvel essai dans 30 minutes"
+            fi
+          fi
+          sleep 1800
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -66,5 +102,6 @@ services:
 
 volumes:
   db-data:
+  backups:
   caddy-data:
   caddy-config:
