@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/guard";
-import { contactLabel, listContacts } from "@/lib/contacts";
+import { contactLabel, contactPhones, listContacts } from "@/lib/contacts";
 import { NewContactForm } from "./forms";
 
 const NEWSLETTER: Record<string, string> = {
@@ -19,6 +19,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>Contacts</h1>
         <div className="row">
+          <Link className="btn secondary" href="/app/contacts/doublons">Doublons</Link>
           <Link className="btn secondary" href="/app/contacts/suggestions">Suggestions</Link>
           <Link className="btn secondary" href="/app/contacts/importer">Importer</Link>
         </div>
@@ -47,7 +48,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                     <Link href={`/app/contacts/${c.id}`}>{[c.firstName, c.lastName].filter(Boolean).join(" ") || contactLabel(c)}</Link>
                     {NEWSLETTER[c.newsletterStatus] && <> <span className={`badge ${c.newsletterStatus}`}>{NEWSLETTER[c.newsletterStatus]}</span></>}
                   </td>
-                  <td>{c.email ?? c.phone ?? (c.linkedinUrl ? "LinkedIn" : "")}</td>
+                  <td>{c.email ?? (contactPhones(c).join(", ") || (c.linkedinUrl ? "LinkedIn" : ""))}</td>
                   <td className="hide-mobile">{c.company ?? ""}</td>
                   <td className="hide-mobile">
                     {c.tags.map((t) => (

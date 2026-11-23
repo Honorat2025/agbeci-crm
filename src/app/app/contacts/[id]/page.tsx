@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { contactLabel, exchangeStats, getContact, listNotes, NOTE_CHANNELS } from "@/lib/contacts";
+import { contactLabel, contactPhones, exchangeStats, getContact, listNotes, NOTE_CHANNELS } from "@/lib/contacts";
 import { whatsappLink, whatsappNumber } from "@/lib/whatsapp";
 import { listThreads, shortDate } from "@/lib/messages";
 import { addDays, formatAmount, KIND_LABELS, listOpportunities, openTasks, STAGE_LABELS, todayParis } from "@/lib/prospection";
@@ -22,12 +22,13 @@ const NEWSLETTER: Record<string, string> = {
   bounced: "Adresse en erreur",
 };
 
-export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ContactPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fusion?: string }> }) {
   await requireAdmin();
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
   const c = await getContact(id);
   if (!c) notFound();
+  const merged = Number((await searchParams).fusion) || 0;
   const [notes, stats, { threads }, deals, tasks, visios] = await Promise.all([
     listNotes(id),
     c.email ? exchangeStats(c.email) : Promise.resolve({ count: 0, last: null }),
@@ -37,7 +38,9 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
     upcomingMeetings({ contactId: id }),
   ]);
   const name = contactLabel(c);
-  const wa = whatsappNumber(c.phone, c.country);
+  const phones = contactPhones(c);
+  const was = phones.map((p) => whatsappNumber(p, c.country));
+  const wa = was.filter((n): n is string => Boolean(n));
 
   return (
     <>
@@ -48,19 +51,22 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
           {c.linkedinUrl && (
             <a className="btn linkedin" href={c.linkedinUrl} target="_blank" rel="noopener noreferrer">LinkedIn</a>
           )}
-          {wa && (
-            <a className="btn whatsapp" href={whatsappLink(wa)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
-          )}
+          {[...new Set(wa)].map((n, i, all) => (
+            <a key={n} className="btn whatsapp" href={whatsappLink(n)} target="_blank" rel="noopener noreferrer" title={`WhatsApp : +${n}`}>
+              WhatsApp{all.length > 1 ? ` ${i + 1}` : ""}
+            </a>
+          ))}
           {c.email && <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(c.email)}`}>Écrire</Link>}
         </div>
       </div>
-      {c.phone && !wa && (
+      {merged > 0 && <p className="success">Fusion faite : {merged + 1} fiches réunies en une seule. Vérifiez le nom et les coordonnées ci-dessous.</p>}
+      {was.some((n) => !n) && (
         <p className="notice small">
-          Le bouton WhatsApp apparaîtra quand le numéro sera au format international (par exemple +225 07 12 34 56 78), ou quand le pays sera indiqué dans les coordonnées.
+          Un bouton WhatsApp apparaîtra pour chaque numéro écrit au format international (par exemple +225 07 12 34 56 78), ou quand le pays sera indiqué dans les coordonnées.
         </p>
       )}
       <p className="muted">
-        {[c.email, c.phone].filter(Boolean).join(" · ") || "Pas d'email ni de téléphone"}{c.email && <> · {NEWSLETTER[c.newsletterStatus]}</>} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
+        {[c.email, ...phones].filter(Boolean).join(" · ") || "Pas d'email ni de téléphone"}{c.email && <> · {NEWSLETTER[c.newsletterStatus]}</>} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
         {stats.count > 0 && stats.last && <> · {stats.count} email(s) échangé(s), le dernier le {stats.last.toLocaleDateString("fr-FR")}</>}
       </p>
 
@@ -113,6 +119,8 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             company: c.company ?? "",
             jobTitle: c.jobTitle ?? "",
             phone: c.phone ?? "",
+            phone2: c.phone2 ?? "",
+            phone3: c.phone3 ?? "",
             email: c.email ?? "",
             hasEmail: Boolean(c.email),
             linkedinUrl: c.linkedinUrl ?? "",
@@ -130,6 +138,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         ) : (
           <>Cette personne peut recevoir les envois groupés de ses étiquettes. <button className="linkbtn">Ne plus l&apos;inclure</button></>
         )}
+        <span> · <Link href={`/app/contacts/fusion?ids=${c.id}`}>Fusionner avec une autre fiche</Link></span>
       </form>
 
       <div className="card">

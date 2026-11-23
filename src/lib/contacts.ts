@@ -1,7 +1,7 @@
 /**
  * Fiches contacts : coordonnées, notes, historique des échanges, suggestions.
  */
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { getDb, getSql, schema } from "@/db";
 import { randomToken } from "./crypto";
 import { getMailSettings } from "./settings";
@@ -17,6 +17,8 @@ export async function listContacts(opts: { q?: string; tag?: string } = {}) {
       or(
         ilike(contacts.email, like),
         ilike(contacts.phone, like),
+        ilike(contacts.phone2, like),
+        ilike(contacts.phone3, like),
         ilike(contacts.firstName, like),
         ilike(contacts.lastName, like),
         ilike(contacts.company, like),
@@ -49,6 +51,8 @@ export type ContactInput = {
   company: string | null;
   jobTitle: string | null;
   phone: string | null;
+  phone2?: string | null;
+  phone3?: string | null;
   country: string | null;
   linkedinUrl: string | null;
   tags: string[];
@@ -78,10 +82,36 @@ export function normalizeLinkedin(value: string | null | undefined): string | nu
   return `https://www.linkedin.com/in/${encodeURIComponent(handle.toLowerCase())}`;
 }
 
-/** Les 9 derniers chiffres d'un numéro : assez pour reconnaître un même numéro écrit de deux façons. */
+/**
+ * Les 8 derniers chiffres d'un numéro : assez pour reconnaître un même numéro écrit de deux façons
+ * (+225 07 12 34 56 78 et 07 12 34 56 78, ou l'ancien et le nouveau format du Bénin : +229 97 00 00 00 et +229 01 97 00 00 00).
+ */
 export function phoneKey(phone: string | null | undefined): string | null {
   const d = (phone ?? "").replace(/\D/g, "");
-  return d.length >= 8 ? d.slice(-9) : null;
+  return d.length >= 8 ? d.slice(-8) : null;
+}
+
+/** Numéros de la fiche, dans l'ordre (Téléphone 1, 2, 3). */
+export function contactPhones(c: { phone?: string | null; phone2?: string | null; phone3?: string | null }): string[] {
+  return [c.phone, c.phone2, c.phone3].map((p) => p?.trim() ?? "").filter(Boolean);
+}
+
+/**
+ * Réunit plusieurs listes de numéros sans doublon (même numéro écrit autrement), dans l'ordre.
+ * Retourne les 3 premiers (Téléphone 1, 2, 3) et ceux qui dépassent.
+ */
+export function mergePhones(...lists: (string | null | undefined)[][]): { kept: [string | null, string | null, string | null]; extra: string[] } {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of lists.flat()) {
+    const v = p?.trim();
+    if (!v) continue;
+    const k = phoneKey(v) ?? v;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return { kept: [out[0] ?? null, out[1] ?? null, out[2] ?? null], extra: out.slice(3) };
 }
 
 export function parseTags(value: string): string[] {
@@ -107,7 +137,7 @@ export async function ensureContact(
 }
 
 /** Retrouve une fiche par email, sinon par profil LinkedIn, sinon (sans email) par numéro de téléphone. */
-async function findExisting(email: string | null, linkedinUrl: string | null, phone: string | null) {
+async function findExisting(email: string | null, linkedinUrl: string | null, phones: string[]) {
   const db = getDb();
   if (email) {
     const c = await getContactByEmail(email);
@@ -117,12 +147,15 @@ async function findExisting(email: string | null, linkedinUrl: string | null, ph
     const [c] = await db.select().from(contacts).where(eq(contacts.linkedinUrl, linkedinUrl));
     if (c) return c;
   }
-  const key = !email ? phoneKey(phone) : null;
-  if (key) {
+  const keys = !email ? phones.map(phoneKey).filter((k): k is string => Boolean(k)) : [];
+  if (keys.length) {
+    const col = (c: AnyColumn) => sql`right(regexp_replace(coalesce(${c}, ''), '[^0-9]', '', 'g'), 8)`;
+    const list = sql.join(keys.map((k) => sql`${k}`), sql`, `);
     const [c] = await db
       .select()
       .from(contacts)
-      .where(sql`right(regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g'), 9) = ${key}`)
+      .where(sql`(${col(contacts.phone)} IN (${list}) OR ${col(contacts.phone2)} IN (${list}) OR ${col(contacts.phone3)} IN (${list}))`)
+      .orderBy(contacts.id)
       .limit(1);
     if (c) return c;
   }
@@ -138,16 +171,20 @@ export async function upsertContact(
 ): Promise<{ id: number; created: boolean }> {
   const normalized = data.email?.trim().toLowerCase() || null;
   const linkedinUrl = normalizeLinkedin(data.linkedinUrl);
-  const phone = data.phone?.trim() || null;
-  if (!normalized && !linkedinUrl && !phoneKey(phone)) throw new Error("Il faut au moins un email, un téléphone ou un profil LinkedIn.");
-  const existing = await findExisting(normalized, linkedinUrl, phone);
+  const phones = mergePhones([data.phone, data.phone2, data.phone3]).kept.filter((p): p is string => Boolean(p));
+  const phone = phones[0] ?? null;
+  if (!normalized && !linkedinUrl && !phones.some((p) => phoneKey(p))) throw new Error("Il faut au moins un email, un téléphone ou un profil LinkedIn.");
+  const existing = await findExisting(normalized, linkedinUrl, phones);
   if (existing) {
     // On complète seulement les champs vides : on n'écrase jamais ce qu'Honorat a saisi.
     const patch: Partial<typeof contacts.$inferInsert> = {};
     if (!existing.firstName && data.firstName) patch.firstName = data.firstName;
     if (!existing.lastName && data.lastName) patch.lastName = data.lastName;
     if (!existing.company && data.company) patch.company = data.company;
-    if (!existing.phone && phone) patch.phone = phone;
+    const before = contactPhones(existing);
+    const merged = mergePhones(before, phones).kept;
+    // Les numéros déjà saisis restent à leur place ; les nouveaux remplissent les cases vides.
+    if (merged.filter(Boolean).length > before.length) [patch.phone, patch.phone2, patch.phone3] = merged;
     if (!existing.email && normalized) patch.email = normalized;
     if (!existing.jobTitle && data.jobTitle) patch.jobTitle = data.jobTitle;
     if (!existing.country && data.country) patch.country = data.country;
@@ -167,6 +204,8 @@ export async function upsertContact(
       company: data.company ?? null,
       jobTitle: data.jobTitle ?? null,
       phone,
+      phone2: phones[1] ?? null,
+      phone3: phones[2] ?? null,
       country: data.country ?? null,
       linkedinUrl,
       tags: data.tags ?? [],
@@ -177,7 +216,7 @@ export async function upsertContact(
     .returning({ id: contacts.id });
   if (row) return { id: row.id, created: true };
   // Créée entre-temps par un autre envoi (même email ou même profil).
-  const again = await findExisting(normalized, linkedinUrl, phone);
+  const again = await findExisting(normalized, linkedinUrl, phones);
   return { id: again!.id, created: false };
 }
 
@@ -265,19 +304,27 @@ export function parseContactsCsv(csv: string): ContactRow[] {
   const iFirst = find(/^first name$/, /^given name$/, /^prénom$/);
   const iLast = find(/^last name$/, /^family name$/, /^nom de famille$/, /^nom$/);
   const iName = find(/^name$/, /^nom complet$/);
-  const iPhone = find(/^phone 1 - value$/, /^téléphone 1 - valeur$/, /^phone$/, /^téléphone$/);
+  // Toutes les colonnes de numéros : « Phone 1 - Value », « Phone 2 - Value »... ou « Téléphone ».
+  const iPhones = header
+    .map((h, i) => [h, i] as const)
+    .filter(([h]) => /^(phone|téléphone) \d+ - (value|valeur)$/.test(h) || /^(phone|téléphone|mobile|portable)$/.test(h))
+    .map(([, i]) => i);
   const iCompany = find(/^organization name$/, /^organization 1 - name$/, /^organisation 1 - nom$/, /^société$/, /^entreprise$/, /^company$/);
   const iTitle = find(/^organization title$/, /^organization 1 - title$/, /^organisation 1 - titre$/, /^fonction$/, /^job title$/);
   const iLabels = find(/^labels$/, /^libellés$/, /^group membership$/, /^groupes$/, /^étiquettes$/);
-  if (iEmail < 0 && iPhone < 0) return [];
+  if (iEmail < 0 && !iPhones.length) return [];
   const out: ContactRow[] = [];
   const seen = new Set<string>();
   for (const r of rows.slice(1)) {
-    const val = (i: number) => (i >= 0 ? (r[i] ?? "").split(":::")[0]!.trim() || null : null);
+    const val = (i: number) => {
+      const v = i >= 0 ? (r[i] ?? "").split(":::")[0]!.trim() : "";
+      return v && v.toLowerCase() !== "null" ? v : null;
+    };
     const rawEmail = (val(iEmail) ?? "").toLowerCase();
     const email = EMAIL_RE.test(rawEmail) ? rawEmail : null;
-    const phone = val(iPhone);
-    const key = email ?? (phoneKey(phone) ? `tel:${phoneKey(phone)}` : null);
+    const [phone, phone2, phone3] = mergePhones(iPhones.flatMap((i) => (r[i] ?? "").split(":::"))).kept;
+    const telKey = [phone, phone2, phone3].map(phoneKey).find(Boolean);
+    const key = email ?? (telKey ? `tel:${telKey}` : null);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const fromName = iName >= 0 ? splitName(r[iName]) : { firstName: null, lastName: null };
@@ -286,6 +333,8 @@ export function parseContactsCsv(csv: string): ContactRow[] {
       firstName: val(iFirst) ?? fromName.firstName,
       lastName: val(iLast) ?? fromName.lastName,
       phone,
+      phone2,
+      phone3,
       company: val(iCompany),
       jobTitle: val(iTitle),
       tags: iLabels >= 0 ? googleLabelsToTags(r[iLabels] ?? "") : [],

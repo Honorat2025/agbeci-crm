@@ -388,3 +388,30 @@ test("fiches sans email : téléphone ou LinkedIn, sans doublon", { skip }, asyn
   assert.equal((await getContact(l.id))!.email, "fatou@sante.sn");
   await assert.rejects(upsertContact({ firstName: "Personne", source: "test" }));
 });
+
+test("fusion de fiches : tout est regroupé sur une seule fiche", { skip }, async () => {
+  const { upsertContact, getContact, addNote, listNotes } = await import("../src/lib/contacts");
+  const { mergeContacts, similarContacts } = await import("../src/lib/merge");
+  const { addTask } = await import("../src/lib/prospection");
+  const a = await upsertContact({ firstName: "Frido", lastName: "Morel AGBECI", phone: "+229 90 11 22 33", source: "test", tags: ["famille"] });
+  const b = await upsertContact({ firstName: "Frido", lastName: "Morel", phone: "+229 01 90 11 22 33", phone2: "+33 6 55 44 33 22", source: "test" });
+  const d = await upsertContact({ firstName: "Morel", lastName: "Frido", email: "frido.morel@example.bj", linkedinUrl: "https://www.linkedin.com/in/frido-morel", source: "linkedin", tags: ["linkedin"] });
+  // Le numéro est le même (ancien et nouveau format du Bénin) : la 2e fiche n'a pas été créée, elle a complété la 1re.
+  assert.equal(b.id, a.id);
+  assert.deepEqual([(await getContact(a.id))!.phone, (await getContact(a.id))!.phone2], ["+229 90 11 22 33", "+33 6 55 44 33 22"]);
+  assert.ok((await similarContacts(a.id)).some((s) => s.id === d.id));
+  await addNote(a.id, "Appel du 20/11");
+  await addTask({ title: "Rappeler Frido", dueOn: "2026-12-01", contactId: a.id });
+  const r = await mergeContacts([a.id, d.id], a.id);
+  assert.deepEqual(r, { id: d.id, merged: 1 }); // la fiche qui a l'email est gardée
+  assert.equal(await getContact(a.id), null);
+  const kept = (await getContact(d.id))!;
+  assert.deepEqual([kept.firstName, kept.lastName, kept.email, kept.linkedinUrl, kept.phone, kept.phone2], ["Frido", "Morel AGBECI", "frido.morel@example.bj", "https://www.linkedin.com/in/frido-morel", "+229 90 11 22 33", "+33 6 55 44 33 22"]);
+  assert.deepEqual(kept.tags.sort(), ["famille", "linkedin"]);
+  const notes = await listNotes(d.id);
+  assert.ok(notes.some((n) => n.body === "Appel du 20/11"));
+  assert.ok(notes.some((n) => n.body.startsWith("Fiches fusionnées")));
+  const [t] = await getDb().select().from(schema.tasks).where(eq(schema.tasks.title, "Rappeler Frido"));
+  assert.equal(t!.contactId, d.id);
+  await assert.rejects(mergeContacts([d.id]));
+});

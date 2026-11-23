@@ -60,6 +60,9 @@ export const contacts = pgTable(
     company: text("company"),
     jobTitle: text("job_title"),
     phone: text("phone"),
+    /** Deuxième et troisième numéros (une même personne a souvent plusieurs téléphones). */
+    phone2: text("phone2"),
+    phone3: text("phone3"),
     country: text("country"),
     /** Adresse du profil LinkedIn (https://www.linkedin.com/in/...). */
     linkedinUrl: text("linkedin_url"),
