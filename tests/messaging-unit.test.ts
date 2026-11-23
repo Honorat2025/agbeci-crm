@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { simpleParser } from "mailparser";
 import { blockRemoteImages, cleanEmailHtml, makeSnippet, toRow } from "../src/lib/mailbox";
-import { parseContactsCsv, parseCsv, splitName } from "../src/lib/contacts";
+import { googleLabelsToTags, parseContactsCsv, parseCsv, splitName } from "../src/lib/contacts";
 import { personalHtml, personalText, replySubject, replyTarget } from "../src/lib/messages";
 
 const RAW = [
@@ -90,10 +90,18 @@ test("import CSV Google Contacts", () => {
   ].join("\n");
   const rows = parseContactsCsv(csv);
   assert.equal(rows.length, 2);
-  assert.deepEqual(rows[0], { email: "awa@example.com", firstName: "Awa", lastName: "Koné", phone: "+225 01", company: "Ministère de la Santé, CI", jobTitle: null });
+  assert.deepEqual(rows[0], { email: "awa@example.com", firstName: "Awa", lastName: "Koné", phone: "+225 01", company: "Ministère de la Santé, CI", jobTitle: null, tags: [] });
   assert.equal(rows[1]!.lastName, 'Dupont "JD"');
   assert.equal(parseCsv("a;b\n1;2").length, 2);
   assert.deepEqual(parseContactsCsv("Prénom;Nom;Adresse e-mail\nAwa;Koné;awa@example.com")[0]?.firstName, "Awa");
   assert.deepEqual(splitName("Awa Marie Koné"), { firstName: "Awa", lastName: "Marie Koné" });
   assert.deepEqual(splitName("x@y.fr"), { firstName: null, lastName: null });
+});
+
+test("groupes Google Contacts vers étiquettes", () => {
+  assert.deepEqual(googleLabelsToTags("ONG Afrique ::: * myContacts ::: Candidature spontanée"), ["ong afrique", "candidature spontanée"]);
+  assert.deepEqual(googleLabelsToTags("* myContacts ::: * starred"), []);
+  assert.deepEqual(googleLabelsToTags("ONG Afrique ::: ong afrique"), ["ong afrique"]);
+  const csv = "First Name,Last Name,Labels,E-mail 1 - Label,E-mail 1 - Value\nAwa,Koné,ONG Afrique ::: * myContacts,* ,awa@ong.org\n";
+  assert.deepEqual(parseContactsCsv(csv)[0]!.tags, ["ong afrique"]);
 });

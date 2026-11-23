@@ -186,6 +186,7 @@ export function parseContactsCsv(csv: string): (Partial<ContactInput> & { email:
   const iPhone = find(/^phone 1 - value$/, /^téléphone 1 - valeur$/, /^phone$/, /^téléphone$/);
   const iCompany = find(/^organization name$/, /^organization 1 - name$/, /^organisation 1 - nom$/, /^société$/, /^entreprise$/, /^company$/);
   const iTitle = find(/^organization title$/, /^organization 1 - title$/, /^organisation 1 - titre$/, /^fonction$/, /^job title$/);
+  const iLabels = find(/^labels$/, /^libellés$/, /^group membership$/, /^groupes$/, /^étiquettes$/);
   if (iEmail < 0) return [];
   const out: (Partial<ContactInput> & { email: string })[] = [];
   const seen = new Set<string>();
@@ -202,9 +203,25 @@ export function parseContactsCsv(csv: string): (Partial<ContactInput> & { email:
       phone: val(iPhone),
       company: val(iCompany),
       jobTitle: val(iTitle),
+      tags: iLabels >= 0 ? googleLabelsToTags(r[iLabels] ?? "") : [],
     });
   }
   return out;
+}
+
+/**
+ * Groupes Google Contacts (« ONG Afrique ::: * myContacts ») vers étiquettes du CRM (« ong afrique »).
+ * Les groupes système de Google (commençant par « * ») sont ignorés.
+ */
+export function googleLabelsToTags(value: string): string[] {
+  return parseTags(
+    value
+      .split(":::")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("*"))
+      .map((l) => l.replace(/,/g, " ").slice(0, 40))
+      .join(","),
+  );
 }
 
 /** Petit lecteur CSV (guillemets, virgules ou points-virgules, retours à la ligne dans les champs). */
