@@ -48,19 +48,18 @@ Cette page ne fonctionne qu'une seule fois : dès que le compte existe, elle est
 
 ## 5. Sauvegardes
 
-Une sauvegarde de la base chaque nuit, conservée 30 jours :
+Le service `backup` fait chaque nuit, après 3 h (heure de Paris), une copie complète de la base (`pg_dump`, format compressé) dans le volume `backups`, et garde les 14 derniers jours. La liste apparaît dans **Réglages > Sauvegardes**, d'où chaque fichier se télécharge. Un avertissement s'affiche si la dernière copie a plus de 36 heures.
+
+Ces copies restent sur le serveur : en télécharger une de temps en temps (par exemple une fois par mois, dans Google Drive) protège aussi contre la perte du serveur. Les sauvegardes du VPS proposées par Hostinger sont un complément utile.
+
+Pour restaurer une sauvegarde (à faire par Claude ou un technicien, jamais sans l'accord d'Honorat) :
 
 ```bash
-crontab -e
-# ajouter la ligne :
-0 3 * * * cd /opt/agbeci-crm && sh deploy/backup.sh >> backups/backup.log 2>&1
+# dans le conteneur backup, qui a déjà les accès à la base
+docker compose exec backup pg_restore --clean --if-exists -d crm /backups/crm-AAAA-MM-JJ.dump
 ```
 
-Pour restaurer une sauvegarde :
-
-```bash
-gunzip -c backups/crm-AAAA-MM-JJ.sql.gz | docker compose exec -T db psql -U crm -d crm
-```
+Pour un fichier téléchargé sur l'ordinateur, le copier d'abord dans le conteneur (`docker compose cp crm-AAAA-MM-JJ.dump backup:/tmp/`) puis lancer la même commande avec `/tmp/crm-AAAA-MM-JJ.dump`.
 
 ## 6. Mettre à jour
 
