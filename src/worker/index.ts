@@ -8,6 +8,7 @@ import { processOutbox, recoverStuck } from "@/lib/queue";
 import { markFinishedNewsletters } from "@/lib/newsletters";
 import { recordSyncError, syncMailbox, syncState } from "@/lib/mailbox";
 import { env } from "@/lib/env";
+import { maybeSendDigest } from "@/lib/digest";
 
 const TICK_MS = 15_000;
 /** Relève de la boîte Gmail : toutes les minutes, ou tout de suite sur demande. */
@@ -30,7 +31,15 @@ async function tick() {
   const sent = await processOutbox(mailer, { max: 50, intervalMs: env.sendIntervalMs });
   await markFinishedNewsletters();
   if (sent > 0) console.log(`${sent} email(s) envoyé(s).`);
-  if (mode === "gmail") await maybeSyncMail(sent > 0);
+  if (mode === "gmail") {
+    await maybeSyncMail(sent > 0);
+    const digest = await maybeSendDigest().catch((err) => {
+      console.error("Email du matin impossible :", err);
+      return "skip";
+    });
+    if (digest === "sent") console.log("Email du matin mis en file d'envoi.");
+    if (digest === "empty") console.log("Email du matin : rien d'urgent aujourd'hui, pas d'envoi.");
+  }
 }
 
 async function maybeSyncMail(justSent: boolean) {

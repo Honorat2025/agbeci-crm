@@ -31,3 +31,20 @@ export async function saveGmail(_: GmailState, form: FormData): Promise<GmailSta
   revalidatePath("/app");
   return { ok: "Gmail est branché : la connexion a été testée avec succès. Les emails en attente vont partir dans la minute." };
 }
+
+export async function toggleDigest(form: FormData) {
+  await requireAdmin();
+  const { setDigestEnabled } = await import("@/lib/digest");
+  await setDigestEnabled(form.get("value") === "on");
+  revalidatePath("/app/reglages");
+}
+
+/** « M'envoyer l'email du matin maintenant », même s'il n'y a rien d'urgent. */
+export async function sendDigestNow(): Promise<void> {
+  await requireAdmin();
+  const { queueDigest } = await import("@/lib/digest");
+  await queueDigest(new Date(), { evenIfEmpty: true });
+  revalidatePath("/app/reglages");
+  const { redirect } = await import("next/navigation");
+  redirect("/app/reglages?matin=envoye#matin");
+}
