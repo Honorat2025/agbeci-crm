@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/guard";
-import { contactLabel, contactPhones, listContacts } from "@/lib/contacts";
+import { contactLabel, contactPhones, initialOf, listContacts, sortName } from "@/lib/contacts";
 import { NewContactForm } from "./forms";
 
 const NEWSLETTER: Record<string, string> = {
@@ -14,6 +14,8 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   await requireAdmin();
   const { q, tag } = await searchParams;
   const rows = await listContacts({ q, tag });
+  const initials = rows.map((c) => initialOf(sortName(c)));
+  const letters = [...new Set(initials)];
   return (
     <>
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -31,6 +33,12 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         {tag && <Link href="/app/contacts">Retirer le filtre « {tag} »</Link>}
       </form>
 
+      {rows.length > 20 && (
+        <nav className="az" aria-label="Aller à la lettre">
+          {letters.map((l) => <a key={l} href={`#lettre-${l}`}>{l}</a>)}
+        </nav>
+      )}
+      <p className="muted small">{rows.length} fiche(s), classées de A à Z.</p>
       <div className="card" style={{ overflowX: "auto" }}>
         {rows.length === 0 ? (
           <p className="muted">
@@ -42,8 +50,8 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
               <tr><th>Nom</th><th>Email ou téléphone</th><th className="hide-mobile">Organisation</th><th className="hide-mobile">Étiquettes</th></tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
-                <tr key={c.id}>
+              {rows.map((c, i) => (
+                <tr key={c.id} id={i === initials.indexOf(initials[i]!) ? `lettre-${initials[i]}` : undefined}>
                   <td>
                     <Link href={`/app/contacts/${c.id}`}>{[c.firstName, c.lastName].filter(Boolean).join(" ") || contactLabel(c)}</Link>
                     {NEWSLETTER[c.newsletterStatus] && <> <span className={`badge ${c.newsletterStatus}`}>{NEWSLETTER[c.newsletterStatus]}</span></>}

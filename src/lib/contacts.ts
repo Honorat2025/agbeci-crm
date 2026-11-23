@@ -27,12 +27,35 @@ export async function listContacts(opts: { q?: string; tag?: string } = {}) {
     );
   }
   if (opts.tag) filters.push(sql`${opts.tag} = ANY(${contacts.tags})`);
-  return getDb()
+  const rows = await getDb()
     .select()
     .from(contacts)
     .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(contacts.updatedAt))
-    .limit(500);
+    .limit(5000);
+  // Classement de A à Z sur le nom affiché, à la française (« Émile » avec les E, majuscules ou non).
+  return rows.sort((a, b) => compareNames(sortName(a), sortName(b)) || a.id - b.id);
+}
+
+/** Comparaison à la française ; les noms sans lettre (numéros) vont à la fin, sous « # ». */
+export function compareNames(a: string, b: string): number {
+  const key = (n: string) => n.replace(/^[^\p{L}\p{N}]+/u, "");
+  const ka = key(a);
+  const kb = key(b);
+  const ha = initialOf(ka) === "#";
+  const hb = initialOf(kb) === "#";
+  if (ha !== hb) return ha ? 1 : -1;
+  return ka.localeCompare(kb, "fr", { sensitivity: "base", numeric: true });
+}
+
+/** Nom qui sert au classement alphabétique. */
+export function sortName(c: { firstName: string | null; lastName: string | null; email: string | null; phone?: string | null; linkedinUrl?: string | null }): string {
+  return ([c.firstName, c.lastName].filter(Boolean).join(" ") || contactLabel(c)).trim();
+}
+
+/** Lettre de l'index A à Z (« # » pour un nom qui commence par un chiffre ou un signe). */
+export function initialOf(name: string): string {
+  const l = name.replace(/^[^\p{L}\p{N}]+/u, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").charAt(0).toUpperCase();
+  return /[A-Z]/.test(l) ? l : "#";
 }
 
 export async function getContact(id: number) {
