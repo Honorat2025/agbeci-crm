@@ -374,3 +374,17 @@ test("notes d'échanges WhatsApp sur la fiche", { skip }, async () => {
   const notes = await listNotes(id);
   assert.deepEqual(notes.map((n) => n.channel).sort(), ["note", "whatsapp"]);
 });
+
+test("fiches sans email : téléphone ou LinkedIn, sans doublon", { skip }, async () => {
+  const { upsertContact, getContact } = await import("../src/lib/contacts");
+  const a = await upsertContact({ firstName: "Yao", phone: "+225 07 99 88 77 66", source: "test" });
+  assert.ok(a.created);
+  const again = await upsertContact({ firstName: "Yao K.", phone: "07 99 88 77 66", country: "Côte d'Ivoire", source: "test" });
+  assert.deepEqual(again, { id: a.id, created: false });
+  assert.equal((await getContact(a.id))!.country, "Côte d'Ivoire");
+  const l = await upsertContact({ firstName: "Fatou", linkedinUrl: "linkedin.com/in/Fatou-Diop", source: "linkedin" });
+  const l2 = await upsertContact({ email: "fatou@sante.sn", linkedinUrl: "https://www.linkedin.com/in/fatou-diop/", source: "linkedin" });
+  assert.equal(l2.id, l.id);
+  assert.equal((await getContact(l.id))!.email, "fatou@sante.sn");
+  await assert.rejects(upsertContact({ firstName: "Personne", source: "test" }));
+});

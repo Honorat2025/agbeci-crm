@@ -57,6 +57,13 @@
       "when": 1795429262043,
       "tag": "0007_chief_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795430407390,
+      "tag": "0008_huge_killraven",
+      "breakpoints": true
     }
   ]
 }

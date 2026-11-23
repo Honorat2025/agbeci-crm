@@ -32,7 +32,11 @@ export async function planMeeting(_: FormState, form: FormData): Promise<FormSta
     if (!link) return { error: "Collez le lien Google Meet (il ressemble à https://meet.google.com/abc-defg-hij)." };
   }
   try {
-    await scheduleMeeting({ contactId, opportunityId, title, startsAt, durationMin, message, link });
+    const res = await scheduleMeeting({ contactId, opportunityId, title, startsAt, durationMin, message, link });
+    if (!res.emailed) {
+      refresh(contactId, opportunityId);
+      return { ok: "Visio planifiée et rappel ajouté. Cette fiche n'a pas d'email : envoyez l'invitation avec le bouton WhatsApp ou LinkedIn de la visio." };
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Impossible de planifier la visio." };
   }

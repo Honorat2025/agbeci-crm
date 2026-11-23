@@ -131,17 +131,20 @@ export async function scheduleMeeting(input: {
         taskId: task!.id,
       })
       .returning({ id: meetings.id });
-    await tx.insert(outbox).values({
-      kind: "personal",
-      contactId: c.id,
-      toEmail: c.email,
-      subject: `Visio : ${input.title}`.slice(0, 200),
-      html: personalHtml(body),
-      text: personalText(body),
-      headers: {},
-      priority: PRIORITY.personal,
-    });
-    return { id: m!.id, room, url };
+    // Sans email, l'invitation s'envoie depuis la fiche (WhatsApp ou LinkedIn).
+    if (c.email) {
+      await tx.insert(outbox).values({
+        kind: "personal",
+        contactId: c.id,
+        toEmail: c.email,
+        subject: `Visio : ${input.title}`.slice(0, 200),
+        html: personalHtml(body),
+        text: personalText(body),
+        headers: {},
+        priority: PRIORITY.personal,
+      });
+    }
+    return { id: m!.id, room, url, emailed: Boolean(c.email) };
   });
 }
 
@@ -159,7 +162,7 @@ export async function cancelMeeting(id: number) {
   await db.transaction(async (tx) => {
     await tx.update(meetings).set({ canceledAt: new Date() }).where(eq(meetings.id, id));
     if (m.taskId) await tx.delete(tasks).where(eq(tasks.id, m.taskId));
-    if (c) {
+    if (c?.email) {
       await tx.insert(outbox).values({
         kind: "personal",
         contactId: c.id,
@@ -181,14 +184,14 @@ export async function upcomingMeetings(opts: { contactId?: number; opportunityId
   if (opts.contactId) filters.push(eq(meetings.contactId, opts.contactId));
   if (opts.opportunityId) filters.push(eq(meetings.opportunityId, opts.opportunityId));
   const rows = await getDb()
-    .select({ m: meetings, firstName: contacts.firstName, lastName: contacts.lastName, email: contacts.email, phone: contacts.phone, country: contacts.country, opportunityTitle: opportunities.title })
+    .select({ m: meetings, firstName: contacts.firstName, lastName: contacts.lastName, email: contacts.email, phone: contacts.phone, country: contacts.country, linkedinUrl: contacts.linkedinUrl, opportunityTitle: opportunities.title })
     .from(meetings)
     .innerJoin(contacts, eq(contacts.id, meetings.contactId))
     .leftJoin(opportunities, eq(opportunities.id, meetings.opportunityId))
     .where(and(...filters))
     .orderBy(asc(meetings.startsAt))
     .limit(opts.limit ?? 50);
-  return rows.map((r) => ({ ...r, url: meetingUrl(r.m), provider: (r.m.link ? "meet" : "jitsi") as Provider, name: [r.firstName, r.lastName].filter(Boolean).join(" ") || r.email }));
+  return rows.map((r) => ({ ...r, url: meetingUrl(r.m), provider: (r.m.link ? "meet" : "jitsi") as Provider, name: [r.firstName, r.lastName].filter(Boolean).join(" ") || r.email || r.phone || "Sans nom" }));
 }
 
 /** Date courte pour les listes : « lun. 30 nov., 15 h 00 ». */

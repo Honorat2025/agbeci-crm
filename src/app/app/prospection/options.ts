@@ -1,4 +1,4 @@
-import { listContacts } from "@/lib/contacts";
+import { contactLabel, listContacts } from "@/lib/contacts";
 import { CURRENCIES, KIND_LABELS, STAGE_LABELS, type Kind, type Stage } from "@/lib/prospection";
 
 export const kindOptions = (Object.keys(KIND_LABELS) as Kind[]).map((k) => ({ value: k, label: KIND_LABELS[k] }));
@@ -11,7 +11,8 @@ export async function contactOptions() {
   return rows
     .map((c) => {
       const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
-      return { value: String(c.id), label: name ? `${name} (${c.email})` : c.email };
+      const extra = c.email ?? c.phone;
+      return { value: String(c.id), label: name && extra ? `${name} (${extra})` : contactLabel(c) };
     })
     .sort((a, b) => a.label.localeCompare(b.label, "fr"));
 }

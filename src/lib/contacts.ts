@@ -16,6 +16,7 @@ export async function listContacts(opts: { q?: string; tag?: string } = {}) {
     filters.push(
       or(
         ilike(contacts.email, like),
+        ilike(contacts.phone, like),
         ilike(contacts.firstName, like),
         ilike(contacts.lastName, like),
         ilike(contacts.company, like),
@@ -49,14 +50,45 @@ export type ContactInput = {
   jobTitle: string | null;
   phone: string | null;
   country: string | null;
+  linkedinUrl: string | null;
   tags: string[];
 };
+
+/** Nom à afficher : nom complet, sinon email, téléphone ou profil LinkedIn. */
+export function contactLabel(c: { firstName: string | null; lastName: string | null; email: string | null; phone?: string | null; linkedinUrl?: string | null }): string {
+  return (
+    [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+    c.email ||
+    c.phone ||
+    (c.linkedinUrl ? `LinkedIn : ${c.linkedinUrl.replace(/^https:\/\/www\.linkedin\.com\/in\//, "")}` : "") ||
+    "Sans nom"
+  );
+}
+
+/** « linkedin.com/in/Awa-Kone/?x=1 » vers « https://www.linkedin.com/in/awa-kone » ; null si ce n'est pas un profil. */
+export function normalizeLinkedin(value: string | null | undefined): string | null {
+  const m = /^(?:https?:\/\/)?(?:[a-z]{2,3}\.)?(?:www\.)?linkedin\.com\/in\/([^/?#\s]+)/i.exec((value ?? "").trim());
+  if (!m) return null;
+  let handle = m[1]!;
+  try {
+    handle = decodeURIComponent(handle);
+  } catch {
+    /* garder tel quel */
+  }
+  return `https://www.linkedin.com/in/${encodeURIComponent(handle.toLowerCase())}`;
+}
+
+/** Les 9 derniers chiffres d'un numéro : assez pour reconnaître un même numéro écrit de deux façons. */
+export function phoneKey(phone: string | null | undefined): string | null {
+  const d = (phone ?? "").replace(/\D/g, "");
+  return d.length >= 8 ? d.slice(-9) : null;
+}
 
 export function parseTags(value: string): string[] {
   return [...new Set(value.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 20);
 }
 
-export async function updateContact(id: number, input: ContactInput) {
+export async function updateContact(id: number, input: ContactInput & { email?: string }) {
   await getDb()
     .update(contacts)
     .set({ ...input, updatedAt: new Date() })
@@ -71,15 +103,55 @@ export async function ensureContact(
   email: string,
   data: Partial<ContactInput> & { source: string },
 ): Promise<{ id: number; created: boolean }> {
-  const normalized = email.trim().toLowerCase();
-  const existing = await getContactByEmail(normalized);
+  return upsertContact({ ...data, email });
+}
+
+/** Retrouve une fiche par email, sinon par profil LinkedIn, sinon (sans email) par numéro de téléphone. */
+async function findExisting(email: string | null, linkedinUrl: string | null, phone: string | null) {
+  const db = getDb();
+  if (email) {
+    const c = await getContactByEmail(email);
+    if (c) return c;
+  }
+  if (linkedinUrl) {
+    const [c] = await db.select().from(contacts).where(eq(contacts.linkedinUrl, linkedinUrl));
+    if (c) return c;
+  }
+  const key = !email ? phoneKey(phone) : null;
+  if (key) {
+    const [c] = await db
+      .select()
+      .from(contacts)
+      .where(sql`right(regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g'), 9) = ${key}`)
+      .limit(1);
+    if (c) return c;
+  }
+  return null;
+}
+
+/**
+ * Crée ou complète une fiche. L'email est facultatif : il faut au moins un email, un téléphone ou un profil LinkedIn.
+ * On complète seulement les champs vides : on n'écrase jamais ce qu'Honorat a saisi.
+ */
+export async function upsertContact(
+  data: Partial<ContactInput> & { email?: string | null; source: string },
+): Promise<{ id: number; created: boolean }> {
+  const normalized = data.email?.trim().toLowerCase() || null;
+  const linkedinUrl = normalizeLinkedin(data.linkedinUrl);
+  const phone = data.phone?.trim() || null;
+  if (!normalized && !linkedinUrl && !phoneKey(phone)) throw new Error("Il faut au moins un email, un téléphone ou un profil LinkedIn.");
+  const existing = await findExisting(normalized, linkedinUrl, phone);
   if (existing) {
     // On complète seulement les champs vides : on n'écrase jamais ce qu'Honorat a saisi.
     const patch: Partial<typeof contacts.$inferInsert> = {};
     if (!existing.firstName && data.firstName) patch.firstName = data.firstName;
     if (!existing.lastName && data.lastName) patch.lastName = data.lastName;
     if (!existing.company && data.company) patch.company = data.company;
-    if (!existing.phone && data.phone) patch.phone = data.phone;
+    if (!existing.phone && phone) patch.phone = phone;
+    if (!existing.email && normalized) patch.email = normalized;
+    if (!existing.jobTitle && data.jobTitle) patch.jobTitle = data.jobTitle;
+    if (!existing.country && data.country) patch.country = data.country;
+    if (!existing.linkedinUrl && linkedinUrl) patch.linkedinUrl = linkedinUrl;
     if (data.tags?.length) patch.tags = [...new Set([...existing.tags, ...data.tags])];
     if (Object.keys(patch).length) {
       await getDb().update(contacts).set({ ...patch, updatedAt: new Date() }).where(eq(contacts.id, existing.id));
@@ -94,16 +166,18 @@ export async function ensureContact(
       lastName: data.lastName ?? null,
       company: data.company ?? null,
       jobTitle: data.jobTitle ?? null,
-      phone: data.phone ?? null,
+      phone,
       country: data.country ?? null,
+      linkedinUrl,
       tags: data.tags ?? [],
       source: data.source,
       unsubscribeToken: randomToken(),
     })
-    .onConflictDoNothing({ target: contacts.email })
+    .onConflictDoNothing()
     .returning({ id: contacts.id });
   if (row) return { id: row.id, created: true };
-  const again = await getContactByEmail(normalized);
+  // Créée entre-temps par un autre envoi (même email ou même profil).
+  const again = await findExisting(normalized, linkedinUrl, phone);
   return { id: again!.id, created: false };
 }
 
@@ -120,7 +194,7 @@ export async function listNotes(contactId: number) {
   return getDb().select().from(contactNotes).where(eq(contactNotes.contactId, contactId)).orderBy(desc(contactNotes.createdAt));
 }
 
-export const NOTE_CHANNELS = { note: "Note", whatsapp: "Échange WhatsApp", appel: "Appel téléphonique" } as const;
+export const NOTE_CHANNELS = { note: "Note", whatsapp: "Échange WhatsApp", linkedin: "Échange LinkedIn", appel: "Appel téléphonique" } as const;
 export type NoteChannel = keyof typeof NOTE_CHANNELS;
 
 export async function addNote(contactId: number, body: string, channel: NoteChannel = "note") {
@@ -173,12 +247,17 @@ export async function suggestedContacts(limit = 50) {
     .map((r) => ({ address: r.address, name: r.name, sent: Number(r.sent), last: new Date(r.last) }));
 }
 
+export type ContactRow = Partial<ContactInput> & { email: string | null };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Lit un fichier CSV (export Google Contacts ou tableur) et en tire nom, prénom, email, téléphone, société.
- * Reconnaît les en-têtes anglais et français de Google Contacts.
+ * Reconnaît les en-têtes anglais et français de Google Contacts. Garde aussi les contacts sans email
+ * qui ont un numéro de téléphone.
  */
-export function parseContactsCsv(csv: string): (Partial<ContactInput> & { email: string })[] {
-  const rows = parseCsv(csv.replace(/^﻿/, ""));
+export function parseContactsCsv(csv: string): ContactRow[] {
+  const rows = parseCsv(csv.replace(/^\uFEFF/, ""));
   if (rows.length < 2) return [];
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
   const find = (...names: RegExp[]) => header.findIndex((h) => names.some((n) => n.test(h)));
@@ -190,26 +269,62 @@ export function parseContactsCsv(csv: string): (Partial<ContactInput> & { email:
   const iCompany = find(/^organization name$/, /^organization 1 - name$/, /^organisation 1 - nom$/, /^société$/, /^entreprise$/, /^company$/);
   const iTitle = find(/^organization title$/, /^organization 1 - title$/, /^organisation 1 - titre$/, /^fonction$/, /^job title$/);
   const iLabels = find(/^labels$/, /^libellés$/, /^group membership$/, /^groupes$/, /^étiquettes$/);
-  if (iEmail < 0) return [];
-  const out: (Partial<ContactInput> & { email: string })[] = [];
+  if (iEmail < 0 && iPhone < 0) return [];
+  const out: ContactRow[] = [];
   const seen = new Set<string>();
   for (const r of rows.slice(1)) {
-    const raw = (r[iEmail] ?? "").split(":::")[0]!.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) || seen.has(raw)) continue;
-    seen.add(raw);
-    const fromName = iName >= 0 ? splitName(r[iName]) : { firstName: null, lastName: null };
     const val = (i: number) => (i >= 0 ? (r[i] ?? "").split(":::")[0]!.trim() || null : null);
+    const rawEmail = (val(iEmail) ?? "").toLowerCase();
+    const email = EMAIL_RE.test(rawEmail) ? rawEmail : null;
+    const phone = val(iPhone);
+    const key = email ?? (phoneKey(phone) ? `tel:${phoneKey(phone)}` : null);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const fromName = iName >= 0 ? splitName(r[iName]) : { firstName: null, lastName: null };
     out.push({
-      email: raw,
+      email,
       firstName: val(iFirst) ?? fromName.firstName,
       lastName: val(iLast) ?? fromName.lastName,
-      phone: val(iPhone),
+      phone,
       company: val(iCompany),
       jobTitle: val(iTitle),
       tags: iLabels >= 0 ? googleLabelsToTags(r[iLabels] ?? "") : [],
     });
   }
   return out;
+}
+
+/**
+ * Relations LinkedIn (fichier « Connections.csv » de l'archive de données LinkedIn) :
+ * quelques lignes d'explication, puis First Name, Last Name, URL, Email Address, Company, Position, Connected On.
+ */
+export function parseLinkedinCsv(csv: string): ContactRow[] {
+  const rows = parseCsv(csv.replace(/^\uFEFF/, ""));
+  const h = rows.findIndex((r) => r.some((c) => /^first name$/i.test(c.trim())) && r.some((c) => /^url$/i.test(c.trim())));
+  if (h < 0) return [];
+  const header = rows[h]!.map((c) => c.trim().toLowerCase());
+  const col = (name: string) => header.indexOf(name);
+  const [iFirst, iLast, iUrl, iEmail, iCompany, iPosition] = ["first name", "last name", "url", "email address", "company", "position"].map(col) as [number, number, number, number, number, number];
+  const out: ContactRow[] = [];
+  const seen = new Set<string>();
+  for (const r of rows.slice(h + 1)) {
+    const val = (i: number) => (i >= 0 ? (r[i] ?? "").trim() || null : null);
+    const linkedinUrl = normalizeLinkedin(val(iUrl));
+    const rawEmail = (val(iEmail) ?? "").toLowerCase();
+    const email = EMAIL_RE.test(rawEmail) ? rawEmail : null;
+    const key = linkedinUrl ?? email;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ email, linkedinUrl, firstName: val(iFirst), lastName: val(iLast), company: val(iCompany), jobTitle: val(iPosition), tags: ["linkedin"] });
+  }
+  return out;
+}
+
+/** Reconnaît le format (LinkedIn ou Google Contacts / tableur). */
+export function parseAnyContactsCsv(csv: string): { format: "linkedin" | "google"; rows: ContactRow[] } {
+  const linkedin = parseLinkedinCsv(csv);
+  if (linkedin.length) return { format: "linkedin", rows: linkedin };
+  return { format: "google", rows: parseContactsCsv(csv) };
 }
 
 /**

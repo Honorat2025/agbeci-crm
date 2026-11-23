@@ -240,6 +240,7 @@ export async function bulkRecipients(tag: string) {
     .where(
       and(
         sql`${tag} = ANY(${contacts.tags})`,
+        isNotNull(contacts.email),
         eq(contacts.noBulk, false),
         notInArray(contacts.newsletterStatus, ["unsubscribed", "bounced"]),
       ),
@@ -266,7 +267,7 @@ export async function queueBulk(input: { tag: string; subject: string; body: str
       await tx.insert(outbox).values({
         kind: "personal",
         contactId: c.id,
-        toEmail: c.email,
+        toEmail: c.email!,
         subject: personalize(input.subject, c).trim(),
         html: personalHtml(body),
         text: personalText(body),

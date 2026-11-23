@@ -98,6 +98,7 @@ export async function queueNewsletter(id: number): Promise<number> {
       .where(eq(contacts.newsletterStatus, "subscribed"));
 
     for (const s of subscribers) {
+      if (!s.email) continue;
       const mail = newsletterEmail(n, s.token);
       await tx
         .insert(outbox)

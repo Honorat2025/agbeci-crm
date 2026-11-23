@@ -10,6 +10,7 @@ export function MeetingForm({
   defaultDay,
   defaultMessage,
   durations,
+  hasEmail = true,
 }: {
   contactId: number;
   opportunityId?: number;
@@ -17,6 +18,8 @@ export function MeetingForm({
   defaultDay: string;
   defaultMessage: string;
   durations: readonly number[];
+  /** Sans email, rien ne part : Honorat envoie l'invitation par WhatsApp ou LinkedIn. */
+  hasEmail?: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(planMeeting, {});
   const [open, setOpen] = useState(false);
@@ -74,13 +77,15 @@ export function MeetingForm({
       <label htmlFor={id("message")}>Message d&apos;invitation</label>
       <textarea id={id("message")} name="message" className="prose short" value={v.message} onChange={set("message")} />
       <p className="muted small">
-        L&apos;email part depuis votre Gmail avec le jour, l&apos;heure (Paris et GMT), le lien de la visio et un lien pour l&apos;ajouter à l&apos;agenda.
+        {hasEmail
+          ? "L'email part depuis votre Gmail avec le jour, l'heure (Paris et GMT), le lien de la visio et un lien pour l'ajouter à l'agenda."
+          : "Cette fiche n'a pas d'email : une fois la visio planifiée, envoyez l'invitation avec le bouton WhatsApp ou LinkedIn qui apparaîtra à côté."}{" "}
         Un rappel est ajouté pour le jour même. Le jour J, ouvrez le lien un peu avant l&apos;heure
         {v.provider === "jitsi" ? " : Jitsi vous demandera de vous connecter avec votre compte Google pour ouvrir la salle." : " et acceptez vos invités quand ils demandent à entrer."}
       </p>
       {state.error && <p className="error">{state.error}</p>}
       <div className="row">
-        <button className="btn" disabled={pending}>Envoyer l&apos;invitation</button>
+        <button className="btn" disabled={pending}>{hasEmail ? "Envoyer l'invitation" : "Planifier la visio"}</button>
         <button type="button" className="linkbtn" onClick={() => setOpen(false)}>Annuler</button>
       </div>
     </form>
