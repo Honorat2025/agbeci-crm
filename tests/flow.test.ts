@@ -323,14 +323,16 @@ test("email du matin : une fois par jour, à partir de 7 h, seulement s'il y a q
 
   await p.addTask({ title: "Appeler le ministère", dueOn: today });
   assert.equal(await d.maybeSendDigest(at("06:30")), "skip", "trop tôt");
+  assert.equal(await d.maybeSendDigest(at("10:00")), "skip", "mise en service : on commence le lendemain");
+  const tomorrow = (h: string) => parisToDate(p.addDays(today, 1), h)!;
   await d.setDigestEnabled(false);
-  assert.equal(await d.maybeSendDigest(at("08:00")), "skip", "coupé");
+  assert.equal(await d.maybeSendDigest(tomorrow("08:00")), "skip", "coupé");
   await d.setDigestEnabled(true);
-  assert.equal(await d.maybeSendDigest(at("08:00")), "sent");
-  assert.equal(await d.maybeSendDigest(at("09:00")), "skip", "une seule fois par jour");
+  assert.equal(await d.maybeSendDigest(tomorrow("08:00")), "sent");
+  assert.equal(await d.maybeSendDigest(tomorrow("09:00")), "skip", "une seule fois par jour");
 
   const [mail] = await db.select().from(schema.outbox).where(sql`${schema.outbox.subject} LIKE 'Votre journée%'`);
   assert.equal(mail!.toEmail, (await getMailSettings()).address);
-  assert.match(mail!.text, /À faire aujourd'hui :\n.*• Appeler le ministère/s);
+  assert.match(mail!.text, /En retard :\n.*• Appeler le ministère/s);
   assert.match(mail!.text, /Ouvrir le CRM : https:\/\/crm\.example\.test\/app/);
 });

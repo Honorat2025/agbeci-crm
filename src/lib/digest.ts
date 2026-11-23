@@ -129,7 +129,13 @@ export async function queueDigest(now = new Date(), opts: { evenIfEmpty?: boolea
 export async function maybeSendDigest(now = new Date()): Promise<"sent" | "empty" | "skip"> {
   if (parisHour(now) < DIGEST_HOUR) return "skip";
   const today = todayParis(now);
-  if ((await getSetting(KEY_LAST)) === today) return "skip";
+  const last = await getSetting(KEY_LAST);
+  if (last === today) return "skip";
+  // Toute première fois (mise en service) : on commence le lendemain matin, pas au milieu de la journée.
+  if (last === null) {
+    await setSetting(KEY_LAST, today);
+    return "skip";
+  }
   if (!(await digestEnabled()) || !(await getMailSettings()).configured) return "skip";
   // On note le jour avant l'envoi : en cas de souci, pas de doublon.
   await setSetting(KEY_LAST, today);
