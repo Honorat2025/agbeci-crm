@@ -5,6 +5,7 @@
 import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "./env";
+import { eventsOfDay } from "./calendar";
 import { meetingUrl } from "./meetings";
 import { personalHtml, personalText, unseenInboxCount } from "./messages";
 import { formatDay, openTasks, todayParis } from "./prospection";
@@ -55,7 +56,7 @@ const hm = (d: Date) => d.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris"
 export async function buildDigest(now = new Date()) {
   const today = todayParis(now);
   const [from, to] = parisDayBounds(now);
-  const [tasks, visiosRaw, unseen, [failed]] = await Promise.all([
+  const [tasks, visiosRaw, unseen, [failed], rdv] = await Promise.all([
     openTasks({ until: today }),
     getDb()
       .select({ m: meetings, firstName: contacts.firstName, lastName: contacts.lastName, email: contacts.email })
@@ -68,6 +69,7 @@ export async function buildDigest(now = new Date()) {
       .select({ n: sql<number>`count(*)::int` })
       .from(outbox)
       .where(inArray(outbox.status, ["failed"])),
+    eventsOfDay(today),
   ]);
   const visios = visiosRaw.filter((v) => todayParis(v.m.startsAt) === today);
   // Le rappel automatique d'une visio fait doublon avec la liste des visios.
@@ -82,6 +84,9 @@ export async function buildDigest(now = new Date()) {
     return parts.length ? ` (${parts.join(", ")})` : "";
   };
   const lines: string[] = [];
+  if (rdv.length) {
+    lines.push(`Rendez-vous aujourd'hui :\n${rdv.map((e) => `• ${e.time ?? "Toute la journée"} : ${e.title}${e.detail ? ` (${e.detail})` : ""}`).join("\n")}`);
+  }
   if (visios.length) {
     lines.push(`Visios aujourd'hui :\n${visios
       .map((v) => `• ${hm(v.m.startsAt)} : ${v.m.title} avec ${[v.firstName, v.lastName].filter(Boolean).join(" ") || v.email}\n  ${meetingUrl(v.m)}`)
@@ -93,6 +98,7 @@ export async function buildDigest(now = new Date()) {
   if (nFailed > 0) lines.push(`Attention : ${nFailed} email(s) n'ont pas pu partir. Voir le tableau de bord.`);
 
   const counts = [
+    rdv.length && `${rdv.length} rendez-vous`,
     visios.length && `${visios.length} visio${visios.length > 1 ? "s" : ""}`,
     now_.length + late.length && `${now_.length + late.length} rappel${now_.length + late.length > 1 ? "s" : ""}`,
     unseen && `${unseen} non lu${unseen > 1 ? "s" : ""}`,
@@ -100,7 +106,7 @@ export async function buildDigest(now = new Date()) {
   const subject = counts.length ? `Votre journée : ${counts.join(", ")}` : "Votre journée : rien d'urgent";
   const body = [
     "Bonjour Honorat,",
-    ...(lines.length ? lines : ["Rien d'urgent aujourd'hui : aucun rappel, aucune visio, aucun message non lu."]),
+    ...(lines.length ? lines : ["Rien d'urgent aujourd'hui : aucun rendez-vous, aucun rappel, aucune visio, aucun message non lu."]),
     `Ouvrir le CRM : ${env.appUrl}/app`,
     "(Email envoyé automatiquement chaque matin par votre CRM. Vous pouvez le couper dans Réglages.)",
   ].join("\n\n");

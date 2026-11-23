@@ -306,3 +306,23 @@ export const meetings = pgTable(
   },
   (t) => [uniqueIndex("meetings_room_idx").on(t.room), index("meetings_starts_idx").on(t.startsAt)],
 );
+
+/** Rendez-vous personnels du calendrier (hors visios, qui ont leur propre table). */
+export const events = pgTable(
+  "events",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").notNull().default(60),
+    /** Toute la journée : l'heure de startsAt est ignorée (minuit, heure de Paris). */
+    allDay: boolean("all_day").notNull().default(false),
+    place: text("place"),
+    notes: text("notes"),
+    contactId: integer("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    /** Conversation Gmail d'où vient le rendez-vous. */
+    mailThreadId: text("mail_thread_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("events_starts_idx").on(t.startsAt)],
+);

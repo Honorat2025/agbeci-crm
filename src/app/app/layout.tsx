@@ -28,6 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/app"><span aria-hidden="true">🏠</span>Accueil</Link>
         <Link href="/app/messages"><span aria-hidden="true">✉️</span>Messages{unseen > 0 && <span className="count">{unseen}</span>}</Link>
         <Link href="/app/rappels"><span aria-hidden="true">⏰</span>Rappels{due > 0 && <span className="count">{due}</span>}</Link>
+        <Link href="/app/calendrier"><span aria-hidden="true">📅</span>Calendrier</Link>
         <Link href="/app/contacts"><span aria-hidden="true">👤</span>Contacts</Link>
       </nav>
     </div>
@@ -46,6 +47,7 @@ function NavLinks({ unseen, due }: { unseen: number; due: number }) {
       <Link href="/app/rappels">
         Rappels{due > 0 && <span className="count">{due}</span>}
       </Link>
+      <Link href="/app/calendrier">Calendrier</Link>
       <Link href="/app/envois">Envoi groupé</Link>
       <Link href="/app/abonnes">Abonnés</Link>
       <Link href="/app/newsletters">Newsletters</Link>

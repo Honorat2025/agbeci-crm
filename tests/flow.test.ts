@@ -336,3 +336,32 @@ test("email du matin : une fois par jour, à partir de 7 h, seulement s'il y a q
   assert.match(mail!.text, /En retard :\n.*• Appeler le ministère/s);
   assert.match(mail!.text, /Ouvrir le CRM : https:\/\/crm\.example\.test\/app/);
 });
+
+test("calendrier : rendez-vous, visios, rappels et abonnement", { skip }, async () => {
+  const { calendarItems, createEvent, parseEventInput, calendarToken, checkCalendarToken, resetCalendarToken, feedEntries, buildIcs, eventsOfDay } = await import("../src/lib/calendar");
+  const { addTask } = await import("../src/lib/prospection");
+  const parsed = parseEventInput({ title: "Rendez-vous banque", day: "2026-12-02", time: "09:30", allDay: false, durationMin: 60, place: "Agence", notes: "", contactId: null, mailThreadId: "fil-42" });
+  assert.ok("values" in parsed);
+  if (!("values" in parsed)) return;
+  const id = await createEvent(parsed.values);
+  await createEvent({ ...parsed.values, title: "Congrès", allDay: true, durationMin: 1440, startsAt: new Date("2026-12-02T23:00:00Z"), mailThreadId: null });
+  await addTask({ title: "Relancer le ministère", dueOn: "2026-12-02" });
+
+  const items = await calendarItems("2026-11-30", "2026-12-06");
+  const d2 = items.get("2026-12-02")!.filter((i) => i.title !== "Plus tard").map((i) => `${i.kind}:${i.time ?? "-"}:${i.title}`);
+  assert.deepEqual(d2, ["event:09 h 30:Rendez-vous banque", "task:-:Relancer le ministère"]);
+  assert.deepEqual(items.get("2026-12-03")!.filter((i) => i.kind === "event").map((i) => i.title), ["Congrès"]); // minuit à Paris = 23 h UTC la veille
+  assert.equal(items.get("2026-12-02")![0]!.href, `/app/calendrier/rdv/${id}`);
+  assert.deepEqual((await eventsOfDay("2026-12-02")).map((e) => e.title), ["Rendez-vous banque"]);
+
+  const token = await calendarToken();
+  assert.equal(await calendarToken(), token);
+  assert.ok(await checkCalendarToken(token));
+  assert.ok(!(await checkCalendarToken("x".repeat(token.length))));
+  const ics = buildIcs(await feedEntries("https://crm.example.test", new Date("2026-11-23T10:00:00Z")));
+  assert.match(ics, /SUMMARY:Rendez-vous banque/);
+  assert.match(ics, /DTSTART;VALUE=DATE:20261203/);
+  assert.match(ics, /SUMMARY:Rappel : Relancer le ministère/);
+  await resetCalendarToken();
+  assert.ok(!(await checkCalendarToken(token)));
+});
