@@ -12,10 +12,13 @@ Application personnelle d'Honorat AGBECI : une messagerie de type CRM, indépend
 - **Nouvel article sur WordPress** : un brouillon de newsletter est préparé automatiquement. Rien ne part sans votre validation.
 - **Messagerie** : vos emails Gmail (12 derniers mois, puis au fil de l'eau, relevés chaque minute) apparaissent dans le CRM, rangés par conversation. Vous pouvez y répondre ou écrire un nouveau message : il part depuis votre Gmail et se retrouve dans vos « Envoyés ». Les images externes (souvent des traceurs) sont masquées tant que vous ne demandez pas à les voir. Rien n'est jamais supprimé dans Gmail.
 - **Fiches contacts** : coordonnées, organisation, pays, étiquettes, notes, et l'historique des échanges avec chaque personne. Création en un clic depuis une conversation, suggestions (les personnes à qui vous écrivez), import d'un export Google Contacts (CSV). Une fiche n'abonne jamais à la newsletter.
-- **Demandes de documents du site** : le site peut créer des fiches par l'adresse `/api/wp/contacts` (protégée par la clé partagée).
+- **Demandes de documents du site** : chaque nouvelle demande de document sur le site crée (ou complète) automatiquement une fiche avec l'étiquette « document » (extension WordPress 0.2.0, adresse `/api/wp/contacts` protégée par la clé partagée).
+- **Prospection** : affaires (clients, consultations, prestations, emploi) suivies étape par étape, de « Piste » à « Gagnée » ou « Perdue », avec montant estimé (EUR, F CFA, USD).
+- **Rappels** : relances datées, liées à un contact ou une affaire ; « À faire aujourd'hui » sur le tableau de bord, report d'un jour ou d'une semaine en un clic.
+- **Envoi groupé personnalisé** : un message écrit une fois, envoyé à tous les contacts d'une étiquette, chacun à son nom (`{prenom}`, `{nom}`, `{organisation}`), depuis Gmail et dans la limite du quota quotidien. 200 destinataires maximum par envoi ; les désinscrits et les fiches exclues ne le reçoivent pas.
 - **Connexion protégée** par mot de passe et code à deux étapes (application Google Authenticator ou équivalent).
 
-Prochaines étapes prévues : import des contacts Gmail, puis prospection (clients, emploi, consultations et prestations en Afrique).
+Les trois étapes prévues (newsletter, messagerie et contacts, prospection) sont en place.
 
 ## Organisation du code
 

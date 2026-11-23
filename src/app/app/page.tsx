@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/guard";
 import { outboxStats, remainingQuota, sentInLast24h } from "@/lib/queue";
 import { getMailSettings } from "@/lib/settings";
 import { unseenInboxCount } from "@/lib/messages";
+import { openTasks, pipelineSummary, STAGE_LABELS, todayParis } from "@/lib/prospection";
+import { TaskList } from "./prospection/task-list";
 
 export default async function Dashboard() {
   await requireAdmin();
@@ -29,6 +31,8 @@ export default async function Dashboard() {
   const queue = await outboxStats();
   const mail = await getMailSettings();
   const unseen = mail.configured ? await unseenInboxCount() : 0;
+  const [todo, pipeline] = await Promise.all([openTasks({ until: todayParis() }), pipelineSummary()]);
+  const openDeals = pipeline.reduce((a, p) => a + p.count, 0);
 
   return (
     <>
@@ -60,6 +64,32 @@ export default async function Dashboard() {
           <Link href="/app/messages">Ouvrir la messagerie</Link>
         </p>
       )}
+
+      <div className="card">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>À faire aujourd&apos;hui</h2>
+          <Link href="/app/rappels">Tous les rappels</Link>
+        </div>
+        <TaskList rows={todo} empty="Rien d'urgent aujourd'hui." />
+      </div>
+
+      <div className="card">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>Prospection</h2>
+          <Link href="/app/prospection">{openDeals > 0 ? `${openDeals} affaire(s) en cours` : "Créer une première affaire"}</Link>
+        </div>
+        {openDeals > 0 && (
+          <div className="stats" style={{ marginTop: 12, marginBottom: 0 }}>
+            {pipeline.map((p) => (
+              <div key={p.stage} className="stat">
+                <div className="n">{p.count}</div>
+                <div className="l">{STAGE_LABELS[p.stage]}</div>
+                {p.totals.length > 0 && <div className="small">{p.totals.join(" · ")}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Derniers abonnés</h2>

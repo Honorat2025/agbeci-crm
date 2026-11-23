@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
 import { exchangeStats, getContact, listNotes } from "@/lib/contacts";
 import { listThreads, shortDate } from "@/lib/messages";
+import { addDays, formatAmount, KIND_LABELS, listOpportunities, openTasks, STAGE_LABELS, todayParis } from "@/lib/prospection";
 import { removeNote } from "../actions";
 import { ContactForm, NoteForm } from "../forms";
+import { toggleNoBulk } from "../../prospection/actions";
+import { TaskForm } from "../../prospection/forms";
+import { TaskList } from "../../prospection/task-list";
 
 const NEWSLETTER: Record<string, string> = {
   none: "Pas abonné à la newsletter",
@@ -20,7 +24,13 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   if (!Number.isInteger(id)) notFound();
   const c = await getContact(id);
   if (!c) notFound();
-  const [notes, stats, { threads }] = await Promise.all([listNotes(id), exchangeStats(c.email), listThreads({ folder: "tous", participant: c.email })]);
+  const [notes, stats, { threads }, deals, tasks] = await Promise.all([
+    listNotes(id),
+    exchangeStats(c.email),
+    listThreads({ folder: "tous", participant: c.email }),
+    listOpportunities({ contactId: id }),
+    openTasks({ contactId: id }),
+  ]);
   const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email;
 
   return (
@@ -34,6 +44,37 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         {c.email} · {NEWSLETTER[c.newsletterStatus]} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
         {stats.count > 0 && stats.last && <> · {stats.count} email(s) échangé(s), le dernier le {stats.last.toLocaleDateString("fr-FR")}</>}
       </p>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Rappels</h2>
+        <TaskList rows={tasks} showLinks={false} empty="Aucun rappel prévu avec cette personne." />
+        <div style={{ marginTop: 12 }}>
+          <TaskForm defaultDue={addDays(todayParis(), 3)} contactId={c.id} />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>Affaires</h2>
+          <Link className="btn secondary" href={`/app/prospection/nouvelle?contact=${c.id}`}>Nouvelle affaire</Link>
+        </div>
+        {deals.length === 0 ? (
+          <p className="muted">Aucune affaire avec cette personne.</p>
+        ) : (
+          <table style={{ marginTop: 12 }}>
+            <tbody>
+              {deals.map(({ o }) => (
+                <tr key={o.id}>
+                  <td><Link href={`/app/prospection/${o.id}`}>{o.title}</Link></td>
+                  <td className="muted">{KIND_LABELS[o.kind]}</td>
+                  <td>{STAGE_LABELS[o.stage]}</td>
+                  <td>{formatAmount(o.amount, o.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Coordonnées</h2>
@@ -50,6 +91,16 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
           }}
         />
       </div>
+
+      <form action={toggleNoBulk} className="row small muted" style={{ margin: "-4px 0 16px" }}>
+        <input type="hidden" name="contactId" value={c.id} />
+        <input type="hidden" name="value" value={c.noBulk ? "0" : "1"} />
+        {c.noBulk ? (
+          <>Cette personne ne reçoit pas les envois groupés. <button className="linkbtn">L&apos;inclure à nouveau</button></>
+        ) : (
+          <>Cette personne peut recevoir les envois groupés de ses étiquettes. <button className="linkbtn">Ne plus l&apos;inclure</button></>
+        )}
+      </form>
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Notes</h2>

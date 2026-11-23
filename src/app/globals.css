@@ -108,3 +108,27 @@ textarea.prose.short { min-height: 90px; }
   .grid2 { grid-template-columns: 1fr; }
   .hide-mobile { display: none; }
 }
+
+/* Prospection */
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.board .col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
+.board .col h2 { margin: 0 0 4px; font-size: 1rem; }
+.board .col .sum { margin-bottom: 10px; }
+.deal { display: block; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; background: var(--bg); }
+.deal a.title { font-weight: 600; text-decoration: none; color: var(--text); }
+.deal a.title:hover { text-decoration: underline; }
+.deal form { margin-top: 6px; }
+.deal select { padding: 4px 6px; font-size: 0.85rem; width: 100%; }
+.deal .next.late { color: var(--danger); }
+.kind { display: inline-block; font-size: 0.75rem; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+.tasks { list-style: none; padding: 0; margin: 0; }
+.tasks li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.tasks li:last-child { border-bottom: 0; }
+.tasks li .what { flex: 1; min-width: 0; }
+.tasks li.done .what > div:first-child { text-decoration: line-through; color: var(--muted); }
+.tasks .late-date { color: var(--danger); font-weight: 600; }
+.tasks .check { width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px; border: 2px solid var(--accent); border-radius: 50%; background: transparent; color: var(--accent); cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 0; }
+.tasks .check:hover { background: var(--bg); }
+.closed-list td { padding: 6px 8px 6px 0; }
+@media (max-width: 900px) { .board { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .board { grid-template-columns: 1fr; } }

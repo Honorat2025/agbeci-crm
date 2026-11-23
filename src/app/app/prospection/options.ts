@@ -1,0 +1,17 @@
+import { listContacts } from "@/lib/contacts";
+import { CURRENCIES, KIND_LABELS, STAGE_LABELS, type Kind, type Stage } from "@/lib/prospection";
+
+export const kindOptions = (Object.keys(KIND_LABELS) as Kind[]).map((k) => ({ value: k, label: KIND_LABELS[k] }));
+export const stageOptions = (Object.keys(STAGE_LABELS) as Stage[]).map((s) => ({ value: s, label: STAGE_LABELS[s] }));
+export { CURRENCIES };
+
+/** Contacts pour les listes déroulantes, triés par nom. */
+export async function contactOptions() {
+  const rows = await listContacts();
+  return rows
+    .map((c) => {
+      const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
+      return { value: String(c.id), label: name ? `${name} (${c.email})` : c.email };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+}

@@ -61,6 +61,8 @@ export const contacts = pgTable(
     phone: text("phone"),
     country: text("country"),
     tags: text("tags").array().notNull().default([]),
+    /** Ne plus inclure cette personne dans les envois groupés (elle l'a demandé). */
+    noBulk: boolean("no_bulk").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -224,3 +226,60 @@ export const contactNotes = pgTable(
 
 export type MailMessage = typeof mailMessages.$inferSelect;
 export type ContactNote = typeof contactNotes.$inferSelect;
+
+/** Types de pistes suivies par Honorat. */
+export const OPPORTUNITY_KINDS = ["client", "consultation", "prestation", "emploi", "autre"] as const;
+/** Étapes, dans l'ordre. */
+export const OPPORTUNITY_STAGES = ["piste", "contact", "proposition", "negociation", "gagnee", "perdue"] as const;
+
+/** Une affaire en cours : mission, consultation, prestation ou poste. */
+export const opportunities = pgTable(
+  "opportunities",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    kind: text("kind").$type<(typeof OPPORTUNITY_KINDS)[number]>().notNull().default("client"),
+    stage: text("stage").$type<(typeof OPPORTUNITY_STAGES)[number]>().notNull().default("piste"),
+    contactId: integer("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    organization: text("organization"),
+    country: text("country"),
+    /** Montant estimé, en unités entières (pas de centimes). */
+    amount: integer("amount"),
+    currency: text("currency").notNull().default("EUR"),
+    source: text("source"),
+    notes: text("notes").notNull().default(""),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("opportunities_stage_idx").on(t.stage), index("opportunities_contact_idx").on(t.contactId)],
+);
+
+/** Rappels : « relancer M. Diallo le 5 décembre ». */
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    /** Jour prévu (AAAA-MM-JJ, heure de Paris). */
+    dueOn: text("due_on").notNull(),
+    contactId: integer("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+    opportunityId: integer("opportunity_id").references(() => opportunities.id, { onDelete: "cascade" }),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tasks_due_idx").on(t.doneAt, t.dueOn)],
+);
+
+/** Historique des envois groupés personnalisés. */
+export const bulkSends = pgTable("bulk_sends", {
+  id: serial("id").primaryKey(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  tag: text("tag").notNull(),
+  recipients: integer("recipients").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Opportunity = typeof opportunities.$inferSelect;
+export type Task = typeof tasks.$inferSelect;
