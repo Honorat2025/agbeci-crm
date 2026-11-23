@@ -8,6 +8,8 @@ import { getMailSettings } from "@/lib/settings";
 import { unseenInboxCount } from "@/lib/messages";
 import { openTasks, pipelineSummary, STAGE_LABELS, todayParis } from "@/lib/prospection";
 import { TaskList } from "./prospection/task-list";
+import { upcomingMeetings } from "@/lib/meetings";
+import { MeetingList } from "./visios/meeting-list";
 
 export default async function Dashboard() {
   await requireAdmin();
@@ -31,7 +33,7 @@ export default async function Dashboard() {
   const queue = await outboxStats();
   const mail = await getMailSettings();
   const unseen = mail.configured ? await unseenInboxCount() : 0;
-  const [todo, pipeline] = await Promise.all([openTasks({ until: todayParis() }), pipelineSummary()]);
+  const [todo, pipeline, visios] = await Promise.all([openTasks({ until: todayParis() }), pipelineSummary(), upcomingMeetings({ limit: 5 })]);
   const openDeals = pipeline.reduce((a, p) => a + p.count, 0);
 
   return (
@@ -63,6 +65,13 @@ export default async function Dashboard() {
           {unseen > 0 ? <>Vous avez <strong>{unseen}</strong> conversation(s) non lue(s). </> : "Aucun email non lu. "}
           <Link href="/app/messages">Ouvrir la messagerie</Link>
         </p>
+      )}
+
+      {visios.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Prochaines visios</h2>
+          <MeetingList rows={visios} />
+        </div>
       )}
 
       <div className="card">

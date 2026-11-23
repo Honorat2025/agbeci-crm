@@ -3,11 +3,13 @@ import { addDays, openTasks, recentlyDoneTasks, todayParis } from "@/lib/prospec
 import { TaskForm } from "../prospection/forms";
 import { contactOptions } from "../prospection/options";
 import { TaskList } from "../prospection/task-list";
+import { upcomingMeetings } from "@/lib/meetings";
+import { MeetingList } from "../visios/meeting-list";
 
 export default async function RemindersPage() {
   await requireAdmin();
   const today = todayParis();
-  const [all, done, contacts] = await Promise.all([openTasks(), recentlyDoneTasks(10), contactOptions()]);
+  const [all, done, contacts, visios] = await Promise.all([openTasks(), recentlyDoneTasks(10), contactOptions(), upcomingMeetings()]);
   const week = addDays(today, 7);
   const late = all.filter((r) => r.t.dueOn < today);
   const now = all.filter((r) => r.t.dueOn === today);
@@ -21,6 +23,12 @@ export default async function RemindersPage() {
       <div className="card">
         <TaskForm defaultDue={today} contacts={contacts} />
       </div>
+      {visios.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Visios à venir</h2>
+          <MeetingList rows={visios} />
+        </div>
+      )}
       {late.length > 0 && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>En retard ({late.length})</h2>

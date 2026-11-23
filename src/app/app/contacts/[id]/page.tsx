@@ -9,6 +9,9 @@ import { ContactForm, NoteForm } from "../forms";
 import { toggleNoBulk } from "../../prospection/actions";
 import { TaskForm } from "../../prospection/forms";
 import { TaskList } from "../../prospection/task-list";
+import { DEFAULT_INVITE, DURATIONS, upcomingMeetings } from "@/lib/meetings";
+import { MeetingForm } from "../../visios/forms";
+import { MeetingList } from "../../visios/meeting-list";
 
 const NEWSLETTER: Record<string, string> = {
   none: "Pas abonné à la newsletter",
@@ -24,12 +27,13 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   if (!Number.isInteger(id)) notFound();
   const c = await getContact(id);
   if (!c) notFound();
-  const [notes, stats, { threads }, deals, tasks] = await Promise.all([
+  const [notes, stats, { threads }, deals, tasks, visios] = await Promise.all([
     listNotes(id),
     exchangeStats(c.email),
     listThreads({ folder: "tous", participant: c.email }),
     listOpportunities({ contactId: id }),
     openTasks({ contactId: id }),
+    upcomingMeetings({ contactId: id }),
   ]);
   const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email;
 
@@ -44,6 +48,14 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         {c.email} · {NEWSLETTER[c.newsletterStatus]} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
         {stats.count > 0 && stats.last && <> · {stats.count} email(s) échangé(s), le dernier le {stats.last.toLocaleDateString("fr-FR")}</>}
       </p>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Visios</h2>
+        <MeetingList rows={visios} showWho={false} />
+        <div style={{ marginTop: visios.length ? 12 : 0 }}>
+          <MeetingForm contactId={c.id} defaultTitle="Consultation" defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} />
+        </div>
+      </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Rappels</h2>

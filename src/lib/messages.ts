@@ -100,11 +100,20 @@ export async function unseenInboxCount(): Promise<number> {
   return Number(row?.n ?? 0);
 }
 
+/** Rend cliquables les adresses web d'un texte déjà échappé. */
+export function linkify(escaped: string): string {
+  return escaped.replace(/https?:\/\/[^\s<]+/g, (raw) => {
+    const url = raw.replace(/[.,;:!?)]+$/, "");
+    const rest = raw.slice(url.length);
+    return `<a href="${url}">${url}</a>${rest}`;
+  });
+}
+
 /** Corps d'un email personnel : texte simple, converti en HTML lisible. */
 export function personalHtml(body: string, quoted?: { date: Date; from: string; text: string }): string {
   const paragraphs = escapeHtml(body.trim())
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 1em">${p.replace(/\n/g, "<br>")}</p>`)
+    .map((p) => `<p style="margin:0 0 1em">${linkify(p).replace(/\n/g, "<br>")}</p>`)
     .join("\n");
   const quote = quoted
     ? `<div style="margin-top:1.5em;color:#555">Le ${escapeHtml(formatDate(quoted.date))}, ${escapeHtml(quoted.from)} a écrit :</div>

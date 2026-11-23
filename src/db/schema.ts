@@ -283,3 +283,26 @@ export const bulkSends = pgTable("bulk_sends", {
 
 export type Opportunity = typeof opportunities.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+
+/** Rendez-vous en visio (Jitsi Meet) : un salon unique par rendez-vous. */
+export const meetings = pgTable(
+  "meetings",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    contactId: integer("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    opportunityId: integer("opportunity_id").references(() => opportunities.id, { onDelete: "set null" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").notNull().default(45),
+    /** Nom du salon Jitsi, long et aléatoire pour ne pas être deviné. */
+    room: text("room").notNull(),
+    /** Lien collé par Honorat (Google Meet) ; vide = salon Jitsi. */
+    link: text("link"),
+    taskId: integer("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("meetings_room_idx").on(t.room), index("meetings_starts_idx").on(t.startsAt)],
+);

@@ -276,3 +276,37 @@ test("prospection : affaires, rappels, envoi groupé personnalisé", { skip }, a
   await p.deleteOpportunity(id);
   assert.equal(await p.getOpportunity(id), null);
 });
+
+test("visios : invitation, rappel du jour, annulation", { skip }, async () => {
+  const { ensureContact } = await import("../src/lib/contacts");
+  const v = await import("../src/lib/meetings");
+  const p = await import("../src/lib/prospection");
+  const db = getDb();
+  const c = await ensureContact("ama@clinique.tg", { firstName: "Ama", source: "test" });
+  const at = new Date(Date.now() + 3 * 86400_000);
+  const { id, room } = await v.scheduleMeeting({ contactId: c.id, opportunityId: null, title: "Consultation", startsAt: at, durationMin: 45, message: "Échangeons." });
+  const [invite] = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Visio : Consultation"));
+  assert.equal(invite!.toEmail, "ama@clinique.tg");
+  assert.ok(invite!.html.includes(`<a href="https://meet.jit.si/${room}">`));
+  const day = at.toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
+  const tasks = await p.openTasks({ contactId: c.id });
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0]!.t.dueOn, day);
+  assert.match(tasks[0]!.t.title, /^Visio à \d\d h \d\d : Consultation$/);
+  assert.equal((await v.upcomingMeetings({ contactId: c.id }))[0]!.url, `https://meet.jit.si/${room}`);
+
+  await v.cancelMeeting(id);
+  await v.cancelMeeting(id); // deux clics : un seul email d'annulation
+  assert.equal((await v.upcomingMeetings({ contactId: c.id })).length, 0);
+  assert.equal((await p.openTasks({ contactId: c.id })).length, 0);
+  const cancels = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Annulation : visio Consultation"));
+  assert.equal(cancels.length, 1);
+
+  // Avec un lien Google Meet collé, c'est lui qui part dans l'invitation et s'affiche.
+  const gm = await v.scheduleMeeting({ contactId: c.id, opportunityId: null, title: "Suivi", startsAt: at, durationMin: 30, message: "", link: "https://meet.google.com/abc-defg-hij" });
+  assert.equal(gm.url, "https://meet.google.com/abc-defg-hij");
+  const [up] = await v.upcomingMeetings({ contactId: c.id });
+  assert.deepEqual([up!.url, up!.provider], ["https://meet.google.com/abc-defg-hij", "meet"]);
+  const [inv] = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Visio : Suivi"));
+  assert.ok(inv!.text.includes("https://meet.google.com/abc-defg-hij") && !inv!.text.includes("meet.jit.si"));
+});
