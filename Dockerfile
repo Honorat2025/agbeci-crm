@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build && cp -r .next/static .next/standalone/.next/static
+RUN npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
 
 FROM node:22-bookworm-slim
 WORKDIR /app
