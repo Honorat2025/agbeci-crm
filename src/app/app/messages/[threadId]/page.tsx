@@ -53,6 +53,18 @@ export default async function ThreadPage({
     <>
       <p><Link href="/app/messages">← Messagerie</Link></p>
       <h1>{thread[0]!.subject || "(sans objet)"}</h1>
+      <p>
+        <Link
+          className="btn secondary"
+          href={`/app/calendrier/nouveau?${new URLSearchParams({
+            titre: (thread[0]!.subject || "").replace(/^((re|tr|fwd?)\s*:\s*)+/i, "").slice(0, 150),
+            conversation: threadId,
+            ...(knownMap.get(to) ?? known[0]?.id ? { contact: String(knownMap.get(to) ?? known[0]!.id) } : {}),
+          }).toString()}`}
+        >
+          📅 Ajouter au calendrier
+        </Link>
+      </p>
 
       <div className="card">
         <strong>Personnes dans cette conversation</strong>
