@@ -19,6 +19,8 @@ Application personnelle d'Honorat AGBECI : une messagerie de type CRM, indépend
 - **Connexion protégée** par mot de passe et code à deux étapes (application Google Authenticator ou équivalent).
 
 - **Visios (Jitsi Meet, ou Google Meet au choix)** : bouton « Planifier une visio » sur les fiches et les affaires. Un lien meet.jit.si unique est créé (ou un lien Google Meet collé est utilisé), l'invitation part depuis Gmail (heure de Paris et GMT, lien d'ajout à Google Agenda), un rappel est ajouté pour le jour même, et les prochaines visios s'affichent au tableau de bord. L'annulation prévient la personne par email.
+- **Sur le téléphone** : le CRM s'installe comme une application (icône, plein écran), avec un menu et une barre d'onglets adaptés aux petits écrans.
+- **Email du matin** : vers 7 h, un récapitulatif dans Gmail (visios du jour, rappels du jour et en retard, messages non lus), seulement s'il y a quelque chose ; réglable dans Réglages.
 - **Sauvegardes** : copie complète de la base chaque nuit, gardée 14 jours, téléchargeable dans Réglages.
 
 Les trois étapes prévues (newsletter, messagerie et contacts, prospection) sont en place.

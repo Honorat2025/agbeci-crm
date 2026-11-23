@@ -5,7 +5,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const url = process.env.TEST_DATABASE_URL;
 process.env.DATABASE_URL = url;
@@ -309,4 +309,28 @@ test("visios : invitation, rappel du jour, annulation", { skip }, async () => {
   assert.deepEqual([up!.url, up!.provider], ["https://meet.google.com/abc-defg-hij", "meet"]);
   const [inv] = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Visio : Suivi"));
   assert.ok(inv!.text.includes("https://meet.google.com/abc-defg-hij") && !inv!.text.includes("meet.jit.si"));
+});
+
+test("email du matin : une fois par jour, à partir de 7 h, seulement s'il y a quelque chose", { skip }, async () => {
+  const d = await import("../src/lib/digest");
+  const p = await import("../src/lib/prospection");
+  const { parisToDate } = await import("../src/lib/meetings");
+  const { getMailSettings } = await import("../src/lib/settings");
+  const db = getDb();
+  const today = p.todayParis();
+  const at = (h: string) => parisToDate(today, h)!;
+  assert.ok((await getMailSettings()).configured, "Gmail branché dans un test précédent");
+
+  await p.addTask({ title: "Appeler le ministère", dueOn: today });
+  assert.equal(await d.maybeSendDigest(at("06:30")), "skip", "trop tôt");
+  await d.setDigestEnabled(false);
+  assert.equal(await d.maybeSendDigest(at("08:00")), "skip", "coupé");
+  await d.setDigestEnabled(true);
+  assert.equal(await d.maybeSendDigest(at("08:00")), "sent");
+  assert.equal(await d.maybeSendDigest(at("09:00")), "skip", "une seule fois par jour");
+
+  const [mail] = await db.select().from(schema.outbox).where(sql`${schema.outbox.subject} LIKE 'Votre journée%'`);
+  assert.equal(mail!.toEmail, (await getMailSettings()).address);
+  assert.match(mail!.text, /À faire aujourd'hui :\n.*• Appeler le ministère/s);
+  assert.match(mail!.text, /Ouvrir le CRM : https:\/\/crm\.example\.test\/app/);
 });

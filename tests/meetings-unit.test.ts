@@ -43,3 +43,10 @@ test("lien Google Meet collé", () => {
   assert.match(body, /^Bonjour,\n\nRendez-vous/);
   assert.match(body, /application Google Meet :\nhttps:\/\/meet\.google\.com\/abc-defg-hij/);
 });
+
+test("heure de Paris pour l'email du matin", async () => {
+  const { parisHour } = await import("../src/lib/digest");
+  assert.equal(parisHour(new Date("2026-11-30T06:00:00Z")), 7);
+  assert.equal(parisHour(new Date("2026-07-01T05:00:00Z")), 7);
+  assert.equal(parisHour(new Date("2026-11-30T23:30:00Z")), 0);
+});
