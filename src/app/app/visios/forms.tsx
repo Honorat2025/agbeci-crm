@@ -20,7 +20,7 @@ export function MeetingForm({
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(planMeeting, {});
   const [open, setOpen] = useState(false);
-  const [v, setV] = useState({ title: defaultTitle, day: defaultDay, time: "15:00", duration: "45", message: defaultMessage });
+  const [v, setV] = useState({ title: defaultTitle, day: defaultDay, time: "15:00", duration: "45", message: defaultMessage, provider: "jitsi", link: "" });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
   useEffect(() => {
     if (state.ok) setOpen(false);
@@ -50,11 +50,33 @@ export function MeetingForm({
           </select>
         </div>
       </div>
+      <fieldset className="plainset">
+        <legend>Outil de visio</legend>
+        <label className="choice">
+          <input type="radio" name="provider" value="jitsi" checked={v.provider === "jitsi"} onChange={set("provider")} />
+          <span><strong>Jitsi Meet</strong> : le lien est créé automatiquement.</span>
+        </label>
+        <label className="choice">
+          <input type="radio" name="provider" value="meet" checked={v.provider === "meet"} onChange={set("provider")} />
+          <span><strong>Google Meet</strong> : collez un lien que vous avez créé.</span>
+        </label>
+        {v.provider === "meet" && (
+          <div style={{ marginTop: 8 }}>
+            <label htmlFor={id("link")}>Lien Google Meet</label>
+            <input id={id("link")} name="link" type="url" placeholder="https://meet.google.com/abc-defg-hij" value={v.link} onChange={set("link")} />
+            <p className="muted small" style={{ margin: "4px 0 0" }}>
+              Pour l&apos;obtenir : ouvrez <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer">meet.google.com</a>, cliquez sur « Nouvelle réunion », puis
+              « Créer une réunion pour plus tard », et copiez le lien.
+            </p>
+          </div>
+        )}
+      </fieldset>
       <label htmlFor={id("message")}>Message d&apos;invitation</label>
       <textarea id={id("message")} name="message" className="prose short" value={v.message} onChange={set("message")} />
       <p className="muted small">
         L&apos;email part depuis votre Gmail avec le jour, l&apos;heure (Paris et GMT), le lien de la visio et un lien pour l&apos;ajouter à l&apos;agenda.
-        Un rappel est ajouté pour le jour même. Le jour J, ouvrez le lien un peu avant l&apos;heure : Jitsi vous demandera de vous connecter avec votre compte Google pour ouvrir la salle.
+        Un rappel est ajouté pour le jour même. Le jour J, ouvrez le lien un peu avant l&apos;heure
+        {v.provider === "jitsi" ? " : Jitsi vous demandera de vous connecter avec votre compte Google pour ouvrir la salle." : " et acceptez vos invités quand ils demandent à entrer."}
       </p>
       {state.error && <p className="error">{state.error}</p>}
       <div className="row">

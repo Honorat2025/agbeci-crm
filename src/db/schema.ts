@@ -298,6 +298,8 @@ export const meetings = pgTable(
     durationMin: integer("duration_min").notNull().default(45),
     /** Nom du salon Jitsi, long et aléatoire pour ne pas être deviné. */
     room: text("room").notNull(),
+    /** Lien collé par Honorat (Google Meet) ; vide = salon Jitsi. */
+    link: text("link"),
     taskId: integer("task_id").references(() => tasks.id, { onDelete: "set null" }),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

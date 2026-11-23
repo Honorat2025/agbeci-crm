@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describeWhen, googleCalendarLink, invitationBody, jitsiUrl, newRoom, parisToDate } from "../src/lib/meetings";
+import { describeWhen, googleCalendarLink, invitationBody, jitsiUrl, meetingUrl, newRoom, normalizeMeetLink, parisToDate } from "../src/lib/meetings";
 import { linkify, personalHtml } from "../src/lib/messages";
 
 test("heure de Paris vers UTC, hiver comme été", () => {
@@ -18,7 +18,7 @@ test("invitation : jour, heure GMT, lien et agenda", () => {
   const room = newRoom();
   assert.match(room, /^AgbeciConsultation-[A-Za-z0-9]{12,}$/);
   assert.notEqual(room, newRoom());
-  const body = invitationBody({ firstName: "Fatou", message: "Je vous propose un échange.", title: "Audit", startsAt: at, durationMin: 45, room });
+  const body = invitationBody({ firstName: "Fatou", message: "Je vous propose un échange.", title: "Audit", startsAt: at, durationMin: 45, url: jitsiUrl(room) });
   assert.match(body, /^Bonjour Fatou,\n\nJe vous propose un échange\./);
   assert.ok(body.includes(jitsiUrl(room)));
   const cal = new URL(googleCalendarLink({ title: "Audit", startsAt: at, durationMin: 45, url: jitsiUrl(room) }));
@@ -30,4 +30,16 @@ test("liens cliquables dans les emails personnels", () => {
   const html = personalHtml("Lien : https://a.test/x?a=1&b=2");
   assert.ok(html.includes('<a href="https://a.test/x?a=1&amp;b=2">'));
   assert.ok(!personalHtml('<script>"https://x.test/"</script>').includes("<script>"));
+});
+
+test("lien Google Meet collé", () => {
+  assert.equal(normalizeMeetLink(" https://meet.google.com/abc-defg-hij?authuser=0 "), "https://meet.google.com/abc-defg-hij");
+  assert.equal(normalizeMeetLink("meet.google.com/ABC-DEFG-HIJ"), "https://meet.google.com/abc-defg-hij");
+  assert.equal(normalizeMeetLink("https://evil.test/meet.google.com/abc-defg-hij"), null);
+  assert.equal(normalizeMeetLink("https://meet.google.com.evil.test/abc-defg-hij"), null);
+  assert.equal(meetingUrl({ room: "Salle", link: null }), "https://meet.jit.si/Salle");
+  assert.equal(meetingUrl({ room: "Salle", link: "https://meet.google.com/abc-defg-hij" }), "https://meet.google.com/abc-defg-hij");
+  const body = invitationBody({ firstName: null, message: "", title: "X", startsAt: new Date("2026-11-30T14:00:00Z"), durationMin: 30, url: "https://meet.google.com/abc-defg-hij" });
+  assert.match(body, /^Bonjour,\n\nRendez-vous/);
+  assert.match(body, /application Google Meet :\nhttps:\/\/meet\.google\.com\/abc-defg-hij/);
 });

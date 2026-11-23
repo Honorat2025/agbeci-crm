@@ -43,7 +43,7 @@ main.content { flex: 1; padding: 28px 32px; max-width: 1100px; min-width: 0; }
 .stat .n { font-size: 1.8rem; font-weight: 700; }
 .stat .l { color: var(--muted); font-size: 0.9rem; }
 label { display: block; font-weight: 600; margin: 12px 0 4px; }
-input[type=text], input[type=email], input[type=password], input[type=search], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=search], input[type=url], textarea, select {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit;
 }
 textarea { min-height: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
@@ -132,3 +132,7 @@ textarea.prose.short { min-height: 90px; }
 .closed-list td { padding: 6px 8px 6px 0; }
 @media (max-width: 900px) { .board { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .board { grid-template-columns: 1fr; } }
+.plainset { border: 0; padding: 0; margin: 12px 0 0; }
+.plainset legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+.choice { display: flex; gap: 8px; align-items: baseline; font-weight: normal; margin: 4px 0; }
+.choice input { width: auto; }

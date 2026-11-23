@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/guard";
-import { cancelMeeting, DURATIONS, parisToDate, scheduleMeeting } from "@/lib/meetings";
+import { cancelMeeting, DURATIONS, normalizeMeetLink, parisToDate, scheduleMeeting } from "@/lib/meetings";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -26,8 +26,13 @@ export async function planMeeting(_: FormState, form: FormData): Promise<FormSta
   if (!startsAt) return { error: "Choisissez le jour et l'heure." };
   if (startsAt.getTime() < Date.now() - 5 * 60000) return { error: "Cette date est déjà passée." };
   if (!(DURATIONS as readonly number[]).includes(durationMin)) return { error: "Choisissez une durée." };
+  let link: string | null = null;
+  if (form.get("provider") === "meet") {
+    link = normalizeMeetLink(String(form.get("link") ?? ""));
+    if (!link) return { error: "Collez le lien Google Meet (il ressemble à https://meet.google.com/abc-defg-hij)." };
+  }
   try {
-    await scheduleMeeting({ contactId, opportunityId, title, startsAt, durationMin, message });
+    await scheduleMeeting({ contactId, opportunityId, title, startsAt, durationMin, message, link });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Impossible de planifier la visio." };
   }

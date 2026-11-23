@@ -14,7 +14,7 @@ export function MeetingList({ rows, showWho = true, empty }: { rows: Row[]; show
           <div className="what">
             <div><strong>{shortWhen(r.m.startsAt)}</strong> · {r.m.title}</div>
             <div className="muted small">
-              {r.m.durationMin} min
+              {r.provider === "meet" ? "Google Meet" : "Jitsi"} · {r.m.durationMin} min
               {showWho && <> · <Link href={`/app/contacts/${r.m.contactId}`}>{r.name}</Link></>}
               {showWho && r.m.opportunityId && <> · <Link href={`/app/prospection/${r.m.opportunityId}`}>{r.opportunityTitle}</Link></>}
             </div>

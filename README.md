@@ -18,7 +18,7 @@ Application personnelle d'Honorat AGBECI : une messagerie de type CRM, indépend
 - **Envoi groupé personnalisé** : un message écrit une fois, envoyé à tous les contacts d'une étiquette, chacun à son nom (`{prenom}`, `{nom}`, `{organisation}`), depuis Gmail et dans la limite du quota quotidien. 200 destinataires maximum par envoi ; les désinscrits et les fiches exclues ne le reçoivent pas.
 - **Connexion protégée** par mot de passe et code à deux étapes (application Google Authenticator ou équivalent).
 
-- **Visios (Jitsi Meet)** : bouton « Planifier une visio » sur les fiches et les affaires. Un lien meet.jit.si unique est créé, l'invitation part depuis Gmail (heure de Paris et GMT, lien d'ajout à Google Agenda), un rappel est ajouté pour le jour même, et les prochaines visios s'affichent au tableau de bord. L'annulation prévient la personne par email.
+- **Visios (Jitsi Meet, ou Google Meet au choix)** : bouton « Planifier une visio » sur les fiches et les affaires. Un lien meet.jit.si unique est créé (ou un lien Google Meet collé est utilisé), l'invitation part depuis Gmail (heure de Paris et GMT, lien d'ajout à Google Agenda), un rappel est ajouté pour le jour même, et les prochaines visios s'affichent au tableau de bord. L'annulation prévient la personne par email.
 - **Sauvegardes** : copie complète de la base chaque nuit, gardée 14 jours, téléchargeable dans Réglages.
 
 Les trois étapes prévues (newsletter, messagerie et contacts, prospection) sont en place.

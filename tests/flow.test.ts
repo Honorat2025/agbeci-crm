@@ -301,4 +301,12 @@ test("visios : invitation, rappel du jour, annulation", { skip }, async () => {
   assert.equal((await p.openTasks({ contactId: c.id })).length, 0);
   const cancels = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Annulation : visio Consultation"));
   assert.equal(cancels.length, 1);
+
+  // Avec un lien Google Meet collé, c'est lui qui part dans l'invitation et s'affiche.
+  const gm = await v.scheduleMeeting({ contactId: c.id, opportunityId: null, title: "Suivi", startsAt: at, durationMin: 30, message: "", link: "https://meet.google.com/abc-defg-hij" });
+  assert.equal(gm.url, "https://meet.google.com/abc-defg-hij");
+  const [up] = await v.upcomingMeetings({ contactId: c.id });
+  assert.deepEqual([up!.url, up!.provider], ["https://meet.google.com/abc-defg-hij", "meet"]);
+  const [inv] = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Visio : Suivi"));
+  assert.ok(inv!.text.includes("https://meet.google.com/abc-defg-hij") && !inv!.text.includes("meet.jit.si"));
 });
