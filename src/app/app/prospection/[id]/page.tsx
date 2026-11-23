@@ -7,6 +7,9 @@ import { removeOpportunity } from "../actions";
 import { OpportunityForm, TaskForm } from "../forms";
 import { contactOptions, CURRENCIES, kindOptions, stageOptions } from "../options";
 import { TaskList } from "../task-list";
+import { DEFAULT_INVITE, DURATIONS, upcomingMeetings } from "@/lib/meetings";
+import { MeetingForm } from "../../visios/forms";
+import { MeetingList } from "../../visios/meeting-list";
 
 export default async function OpportunityPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -14,10 +17,11 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   if (!Number.isInteger(id)) notFound();
   const o = await getOpportunity(id);
   if (!o) notFound();
-  const [contact, contacts, tasks] = await Promise.all([
+  const [contact, contacts, tasks, visios] = await Promise.all([
     o.contactId ? getContact(o.contactId) : null,
     contactOptions(),
     openTasks({ opportunityId: id }),
+    upcomingMeetings({ opportunityId: id }),
   ]);
   const contactName = contact ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.email : null;
 
@@ -34,6 +38,18 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
         {" "}· Créée le {o.createdAt.toLocaleDateString("fr-FR")}
         {o.closedAt && <> · Terminée le {o.closedAt.toLocaleDateString("fr-FR")}</>}
       </p>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Visios</h2>
+        <MeetingList rows={visios} showWho={false} />
+        {contact ? (
+          <div style={{ marginTop: visios.length ? 12 : 0 }}>
+            <MeetingForm contactId={contact.id} opportunityId={o.id} defaultTitle={o.title} defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} />
+          </div>
+        ) : (
+          <p className="muted">Choisissez un contact dans les détails de l&apos;affaire pour pouvoir l&apos;inviter en visio.</p>
+        )}
+      </div>
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Rappels</h2>
