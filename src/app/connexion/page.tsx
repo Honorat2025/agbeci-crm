@@ -11,6 +11,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const codeStep = etape === "code" && session.pendingAdminId;
   return (
     <div className="public card">
+      <img src="/logo.png" alt="Logo Dr. AH" width={72} height={72} className="login-logo" />
       <h1>Connexion</h1>
       {codeStep ? <CodeForm /> : <PasswordForm />}
     </div>

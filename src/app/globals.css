@@ -32,7 +32,11 @@ h1 { font-size: 1.6rem; margin: 0 0 16px; }
 h2 { font-size: 1.15rem; margin: 24px 0 12px; }
 .shell { display: flex; min-height: 100vh; }
 .nav { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; }
-.nav .brand { font-weight: 700; margin: 0 8px 18px; }
+.nav .brand { font-weight: 700; margin: 0 8px 18px; text-decoration: none; color: var(--text); }
+.nav .brand:hover { background: none; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand img { border-radius: 8px; flex: none; }
+.login-logo { display: block; margin: 0 auto 8px; border-radius: 14px; }
 .nav a { padding: 8px 10px; border-radius: 6px; text-decoration: none; color: var(--text); }
 .nav a:hover { background: var(--bg); }
 .nav form { margin-top: auto; }
