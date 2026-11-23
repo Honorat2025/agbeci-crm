@@ -17,6 +17,7 @@ export default async function ImportPage() {
         </ol>
         <p className="muted">
           Les contacts sans adresse email sont ignorés. Une fiche qui existe déjà n&apos;est pas écrasée : seuls les champs vides sont complétés.
+          Vos groupes Google (par exemple « ONG Afrique ») deviennent des étiquettes, utilisables pour les envois groupés.
           Personne n&apos;est abonné à la newsletter par cet import.
         </p>
         <ImportForm />

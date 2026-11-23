@@ -97,7 +97,7 @@ export async function importCsv(_: FormState, form: FormData): Promise<FormState
   }
   let created = 0;
   for (const r of rows) {
-    const res = await ensureContact(r.email, { ...r, tags: ["google-contacts"], source: "import" });
+    const res = await ensureContact(r.email, { ...r, tags: ["google-contacts", ...(r.tags ?? [])], source: "import" });
     if (res.created) created += 1;
   }
   revalidatePath("/app/contacts");
