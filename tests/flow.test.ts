@@ -365,3 +365,12 @@ test("calendrier : rendez-vous, visios, rappels et abonnement", { skip }, async 
   await resetCalendarToken();
   assert.ok(!(await checkCalendarToken(token)));
 });
+
+test("notes d'échanges WhatsApp sur la fiche", { skip }, async () => {
+  const { ensureContact, addNote, listNotes } = await import("../src/lib/contacts");
+  const { id } = await ensureContact("awa.diallo@example.sn", { firstName: "Awa", lastName: "Diallo", phone: "77 123 45 67", country: "Sénégal", source: "test" });
+  await addNote(id, "D'accord pour une visio mardi.", "whatsapp");
+  await addNote(id, "Note simple.");
+  const notes = await listNotes(id);
+  assert.deepEqual(notes.map((n) => n.channel).sort(), ["note", "whatsapp"]);
+});

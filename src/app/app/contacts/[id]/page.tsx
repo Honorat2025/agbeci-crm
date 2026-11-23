@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { exchangeStats, getContact, listNotes } from "@/lib/contacts";
+import { exchangeStats, getContact, listNotes, NOTE_CHANNELS } from "@/lib/contacts";
+import { whatsappLink, whatsappNumber } from "@/lib/whatsapp";
 import { listThreads, shortDate } from "@/lib/messages";
 import { addDays, formatAmount, KIND_LABELS, listOpportunities, openTasks, STAGE_LABELS, todayParis } from "@/lib/prospection";
 import { removeNote } from "../actions";
@@ -36,14 +37,25 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
     upcomingMeetings({ contactId: id }),
   ]);
   const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email;
+  const wa = whatsappNumber(c.phone, c.country);
 
   return (
     <>
       <p><Link href="/app/contacts">← Contacts</Link></p>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>{name}</h1>
-        <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(c.email)}`}>Écrire</Link>
+        <div className="row">
+          {wa && (
+            <a className="btn whatsapp" href={whatsappLink(wa)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          )}
+          <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(c.email)}`}>Écrire</Link>
+        </div>
       </div>
+      {c.phone && !wa && (
+        <p className="notice small">
+          Le bouton WhatsApp apparaîtra quand le numéro sera au format international (par exemple +225 07 12 34 56 78), ou quand le pays sera indiqué dans les coordonnées.
+        </p>
+      )}
       <p className="muted">
         {c.email} · {NEWSLETTER[c.newsletterStatus]} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
         {stats.count > 0 && stats.last && <> · {stats.count} email(s) échangé(s), le dernier le {stats.last.toLocaleDateString("fr-FR")}</>}
@@ -115,10 +127,16 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       </form>
 
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Notes</h2>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0 }}>Notes et échanges</h2>
+          <Link className="btn secondary" href={`/app/calendrier/nouveau?${new URLSearchParams({ contact: String(c.id), titre: `Rendez-vous avec ${name}` }).toString()}`}>
+            📅 Ajouter au calendrier
+          </Link>
+        </div>
         <NoteForm contactId={c.id} />
         {notes.map((n) => (
           <div key={n.id} className="note">
+            {n.channel !== "note" && <span className={`badge ${n.channel}`}>{NOTE_CHANNELS[n.channel]}</span>}
             <div className="plain">{n.body}</div>
             <div className="row muted small" style={{ justifyContent: "space-between" }}>
               <span>{n.createdAt.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" })}</span>
@@ -133,7 +151,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="card threads compact">
-        <h2 style={{ marginTop: 0 }}>Échanges</h2>
+        <h2 style={{ marginTop: 0 }}>Emails échangés</h2>
         {threads.length === 0 ? (
           <p className="muted">Aucun email avec cette personne dans les 12 derniers mois.</p>
         ) : (

@@ -120,8 +120,11 @@ export async function listNotes(contactId: number) {
   return getDb().select().from(contactNotes).where(eq(contactNotes.contactId, contactId)).orderBy(desc(contactNotes.createdAt));
 }
 
-export async function addNote(contactId: number, body: string) {
-  await getDb().insert(contactNotes).values({ contactId, body: body.trim().slice(0, 10_000) });
+export const NOTE_CHANNELS = { note: "Note", whatsapp: "Échange WhatsApp", appel: "Appel téléphonique" } as const;
+export type NoteChannel = keyof typeof NOTE_CHANNELS;
+
+export async function addNote(contactId: number, body: string, channel: NoteChannel = "note") {
+  await getDb().insert(contactNotes).values({ contactId, body: body.trim().slice(0, 10_000), channel });
   await getDb().update(contacts).set({ updatedAt: new Date() }).where(eq(contacts.id, contactId));
 }
 

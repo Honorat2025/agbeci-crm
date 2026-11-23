@@ -181,7 +181,7 @@ export async function upcomingMeetings(opts: { contactId?: number; opportunityId
   if (opts.contactId) filters.push(eq(meetings.contactId, opts.contactId));
   if (opts.opportunityId) filters.push(eq(meetings.opportunityId, opts.opportunityId));
   const rows = await getDb()
-    .select({ m: meetings, firstName: contacts.firstName, lastName: contacts.lastName, email: contacts.email, opportunityTitle: opportunities.title })
+    .select({ m: meetings, firstName: contacts.firstName, lastName: contacts.lastName, email: contacts.email, phone: contacts.phone, country: contacts.country, opportunityTitle: opportunities.title })
     .from(meetings)
     .innerJoin(contacts, eq(contacts.id, meetings.contactId))
     .leftJoin(opportunities, eq(opportunities.id, meetings.opportunityId))
