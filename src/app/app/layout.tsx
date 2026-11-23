@@ -14,13 +14,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="shell">
       {/* Téléphone : barre du haut avec menu complet, et barre d'onglets en bas. */}
       <header className="topbar">
-        <Link href="/app" className="brand">Agbeci CRM</Link>
+        <Link href="/app" className="brand"><img src="/logo.png" alt="" width={32} height={32} />Agbeci CRM</Link>
         <MobileMenu badge={unseen + due}>
           <NavLinks unseen={unseen} due={due} />
         </MobileMenu>
       </header>
       <nav className="nav">
-        <div className="brand">Agbeci CRM</div>
+        <Link href="/app" className="brand"><img src="/logo.png" alt="" width={40} height={40} />Agbeci CRM</Link>
         <NavLinks unseen={unseen} due={due} />
       </nav>
       <main className="content">{children}</main>
