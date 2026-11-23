@@ -64,6 +64,13 @@
       "when": 1795430407390,
       "tag": "0008_huge_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795432429021,
+      "tag": "0009_faithful_sentinel",
+      "breakpoints": true
     }
   ]
 }

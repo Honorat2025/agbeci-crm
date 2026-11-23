@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { createContact, importCsv, saveContact, saveNote, type FormState } from "./actions";
+import { createContact, importCsv, mergeAction, saveContact, saveNote, type FormState } from "./actions";
 
 type Change = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>;
 
@@ -12,6 +12,8 @@ export type ContactFields = {
   company: string;
   jobTitle: string;
   phone: string;
+  phone2: string;
+  phone3: string;
   country: string;
   tags: string;
   email: string;
@@ -36,8 +38,10 @@ export function ContactForm({ initial }: { initial: ContactFields }) {
         <div><label htmlFor="lastName">Nom</label><input type="text" {...bind("lastName")} /></div>
         <div><label htmlFor="company">Organisation</label><input type="text" {...bind("company")} /></div>
         <div><label htmlFor="jobTitle">Fonction</label><input type="text" {...bind("jobTitle")} /></div>
-        <div><label htmlFor="phone">Téléphone</label><input type="text" {...bind("phone")} /></div>
         <div><label htmlFor="country">Pays</label><input type="text" {...bind("country")} /></div>
+        <div><label htmlFor="phone">Téléphone 1</label><input type="tel" {...bind("phone")} /></div>
+        <div><label htmlFor="phone2">Téléphone 2</label><input type="tel" {...bind("phone2")} /></div>
+        <div><label htmlFor="phone3">Téléphone 3</label><input type="tel" {...bind("phone3")} /></div>
         {!v.hasEmail && <div><label htmlFor="email">Email</label><input type="email" {...bind("email")} /></div>}
         <div><label htmlFor="linkedinUrl">Profil LinkedIn</label><input type="url" placeholder="https://www.linkedin.com/in/…" {...bind("linkedinUrl")} /></div>
       </div>
@@ -106,6 +110,30 @@ export function ImportForm() {
       {state.error && <p className="error">{state.error}</p>}
       {state.ok && <p className="success">{state.ok}</p>}
       <p><button className="btn" disabled={pending}>{pending ? "Import en cours…" : "Importer"}</button></p>
+    </form>
+  );
+}
+
+/** Confirmation de la fusion : choix du nom à garder. */
+export function MergeForm({ ids, names, defaultName }: { ids: number[]; names: { id: number; label: string }[]; defaultName: number }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(mergeAction, {});
+  const [nameFrom, setNameFrom] = useState(defaultName);
+  return (
+    <form action={action}>
+      {ids.map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
+      {names.length > 1 && (
+        <fieldset className="plainset">
+          <legend>Nom à garder</legend>
+          {names.map((n) => (
+            <label key={n.id} className="choice">
+              <input type="radio" name="nameFrom" value={n.id} checked={nameFrom === n.id} onChange={() => setNameFrom(n.id)} /> <span>{n.label}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {names.length === 1 && <input type="hidden" name="nameFrom" value={nameFrom} />}
+      {state.error && <p className="error">{state.error}</p>}
+      <p><button className="btn" disabled={pending}>{pending ? "Fusion en cours…" : `Fusionner ces ${ids.length} fiches`}</button></p>
     </form>
   );
 }

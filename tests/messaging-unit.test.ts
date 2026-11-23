@@ -90,7 +90,7 @@ test("import CSV Google Contacts", () => {
   ].join("\n");
   const rows = parseContactsCsv(csv);
   assert.equal(rows.length, 2);
-  assert.deepEqual(rows[0], { email: "awa@example.com", firstName: "Awa", lastName: "Koné", phone: "+225 01", company: "Ministère de la Santé, CI", jobTitle: null, tags: [] });
+  assert.deepEqual(rows[0], { email: "awa@example.com", firstName: "Awa", lastName: "Koné", phone: "+225 01", phone2: null, phone3: null, company: "Ministère de la Santé, CI", jobTitle: null, tags: [] });
   assert.equal(rows[1]!.lastName, 'Dupont "JD"');
   assert.equal(parseCsv("a;b\n1;2").length, 2);
   assert.deepEqual(parseContactsCsv("Prénom;Nom;Adresse e-mail\nAwa;Koné;awa@example.com")[0]?.firstName, "Awa");

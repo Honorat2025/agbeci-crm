@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
 import { addNote, deleteNote, getContact, getContactByEmail, NOTE_CHANNELS, type NoteChannel, ensureContact, normalizeLinkedin, parseAnyContactsCsv, parseTags, phoneKey, splitName, updateContact, upsertContact } from "@/lib/contacts";
+import { mergeContacts } from "@/lib/merge";
 import { emailSchema } from "@/lib/validation";
 
 export type FormState = { error?: string; ok?: string };
@@ -73,6 +74,8 @@ export async function saveContact(_: FormState, form: FormData): Promise<FormSta
     company: clean(form.get("company")),
     jobTitle: clean(form.get("jobTitle")),
     phone: clean(form.get("phone"), 50),
+    phone2: clean(form.get("phone2"), 50),
+    phone3: clean(form.get("phone3"), 50),
     country: clean(form.get("country"), 80),
     tags: parseTags(String(form.get("tags") ?? "")),
   });
@@ -135,4 +138,19 @@ export async function importCsv(_: FormState, form: FormData): Promise<FormState
   return {
     ok: `${rows.length} ${what} : ${created} nouvelle(s) fiche(s), ${rows.length - created} déjà connue(s) et complétée(s).${noEmail ? ` ${noEmail} n'ont pas d'email (téléphone ou LinkedIn seulement).` : ""}`,
   };
+}
+
+/** Fusionne les fiches choisies sur la page de fusion. */
+export async function mergeAction(_: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  const ids = form.getAll("ids").map(Number).filter(Number.isInteger);
+  const nameFrom = Number(form.get("nameFrom")) || undefined;
+  let result: { id: number; merged: number };
+  try {
+    result = await mergeContacts(ids, nameFrom);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "La fusion n'a pas pu se faire." };
+  }
+  revalidatePath("/app/contacts");
+  redirect(`/app/contacts/${result.id}?fusion=${result.merged}`);
 }
