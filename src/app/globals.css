@@ -221,3 +221,8 @@ textarea.prose.short { min-height: 90px; }
 .btn.linkedin { background: #0a66c2; border-color: #0a66c2; color: #fff; }
 .badge.linkedin { background: #e2eefa; border-color: #b7d3f0; color: #0a4f96; }
 @media (prefers-color-scheme: dark) { .badge.linkedin { background: #14273d; border-color: #2b4c72; color: #9cc6f2; } }
+
+/* Index A à Z de la liste des contacts */
+.az { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; position: sticky; top: 0; z-index: 2; background: var(--bg, #f6f6f3); padding: 6px 0; }
+.az a { background: var(--surface); min-width: 30px; padding: 4px 6px; text-align: center; border: 1px solid var(--border, #d9d9d4); border-radius: 6px; text-decoration: none; font-weight: 600; }
+tr[id^="lettre-"] { scroll-margin-top: 60px; }

@@ -33,3 +33,11 @@ test("doublons : même nom écrit autrement, ou même numéro", () => {
   ]);
   assert.deepEqual(groups.map((g) => g.map((x) => x.id)), [[1, 2, 3, 7], [5, 6]]);
 });
+
+test("classement de A à Z", async () => {
+  const { compareNames, initialOf, sortName } = await import("../src/lib/contacts");
+  const names = ["zoé", "Émile", ".abel", "✨Bénédicte✨", "+225 07"].map((firstName) => ({ firstName, lastName: null, email: null }));
+  const sorted = names.map(sortName).sort(compareNames);
+  assert.deepEqual(sorted, [".abel", "✨Bénédicte✨", "Émile", "zoé", "+225 07"]);
+  assert.deepEqual(sorted.map(initialOf), ["A", "B", "E", "Z", "#"]);
+});
