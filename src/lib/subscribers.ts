@@ -107,7 +107,7 @@ export async function confirmSubscription(token: string): Promise<boolean> {
     await tx.insert(outbox).values({
       kind: "welcome",
       contactId: contact.id,
-      toEmail: contact.email,
+      toEmail: contact.email!,
       subject: mail.subject,
       html: mail.html,
       text: mail.text,

@@ -30,7 +30,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
       <p><Link href="/app/prospection">← Prospection</Link></p>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>{o.title}</h1>
-        {contact && <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(contact.email)}`}>Écrire à {contact.firstName ?? contactName}</Link>}
+        {contact?.email && <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(contact.email)}`}>Écrire à {contact.firstName ?? contactName}</Link>}
       </div>
       <p className="muted">
         {KIND_LABELS[o.kind]} · {STAGE_LABELS[o.stage]}
@@ -44,7 +44,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
         <MeetingList rows={visios} showWho={false} />
         {contact ? (
           <div style={{ marginTop: visios.length ? 12 : 0 }}>
-            <MeetingForm contactId={contact.id} opportunityId={o.id} defaultTitle={o.title} defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} />
+            <MeetingForm contactId={contact.id} opportunityId={o.id} defaultTitle={o.title} defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} hasEmail={Boolean(contact.email)} />
           </div>
         ) : (
           <p className="muted">Choisissez un contact dans les détails de l&apos;affaire pour pouvoir l&apos;inviter en visio.</p>

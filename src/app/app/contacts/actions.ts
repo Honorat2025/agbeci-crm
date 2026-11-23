@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { addNote, deleteNote, NOTE_CHANNELS, type NoteChannel, ensureContact, parseContactsCsv, parseTags, splitName, updateContact } from "@/lib/contacts";
+import { addNote, deleteNote, getContact, getContactByEmail, NOTE_CHANNELS, type NoteChannel, ensureContact, normalizeLinkedin, parseAnyContactsCsv, parseTags, phoneKey, splitName, updateContact, upsertContact } from "@/lib/contacts";
 import { emailSchema } from "@/lib/validation";
 
 export type FormState = { error?: string; ok?: string };
@@ -25,15 +25,24 @@ export async function createContactFromAddress(form: FormData) {
 
 export async function createContact(_: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
-  const email = emailSchema.safeParse(form.get("email"));
-  if (!email.success) return { error: "Adresse email invalide." };
-  const { id, created } = await ensureContact(email.data, {
+  const rawEmail = clean(form.get("email"));
+  const email = rawEmail ? emailSchema.safeParse(rawEmail) : null;
+  if (email && !email.success) return { error: "Adresse email invalide." };
+  const phone = clean(form.get("phone"), 50);
+  const rawLinkedin = clean(form.get("linkedinUrl"), 300);
+  const linkedinUrl = normalizeLinkedin(rawLinkedin);
+  if (rawLinkedin && !linkedinUrl) return { error: "Le lien LinkedIn doit ressembler à https://www.linkedin.com/in/nom-prenom" };
+  if (!email && !phoneKey(phone) && !linkedinUrl) return { error: "Indiquez au moins un email, un numéro de téléphone ou un profil LinkedIn." };
+  const { id, created } = await upsertContact({
+    email: email?.data ?? null,
+    phone,
+    linkedinUrl,
     firstName: clean(form.get("firstName")),
     lastName: clean(form.get("lastName")),
     company: clean(form.get("company")),
     source: "manual",
   });
-  if (!created) return { error: "Cette adresse a déjà une fiche." , ok: undefined };
+  if (!created) return { error: "Cette personne a déjà une fiche (même email, téléphone ou profil LinkedIn)." };
   redirect(`/app/contacts/${id}`);
 }
 
@@ -41,7 +50,24 @@ export async function saveContact(_: FormState, form: FormData): Promise<FormSta
   await requireAdmin();
   const id = Number(form.get("id"));
   if (!Number.isInteger(id)) return { error: "Fiche introuvable." };
+  const current = await getContact(id);
+  if (!current) return { error: "Fiche introuvable." };
+  const rawLinkedin = clean(form.get("linkedinUrl"), 300);
+  const linkedinUrl = normalizeLinkedin(rawLinkedin);
+  if (rawLinkedin && !linkedinUrl) return { error: "Le lien LinkedIn doit ressembler à https://www.linkedin.com/in/nom-prenom" };
+  // L'email ne s'ajoute qu'à une fiche qui n'en a pas (il sert aussi à la newsletter).
+  let email: string | undefined;
+  const rawEmail = clean(form.get("email"));
+  if (!current.email && rawEmail) {
+    const parsed = emailSchema.safeParse(rawEmail);
+    if (!parsed.success) return { error: "Adresse email invalide." };
+    const other = await getContactByEmail(parsed.data);
+    if (other && other.id !== id) return { error: "Cette adresse email appartient déjà à une autre fiche." };
+    email = parsed.data;
+  }
   await updateContact(id, {
+    ...(email ? { email } : {}),
+    linkedinUrl,
     firstName: clean(form.get("firstName")),
     lastName: clean(form.get("lastName")),
     company: clean(form.get("company")),
@@ -93,15 +119,20 @@ export async function importCsv(_: FormState, form: FormData): Promise<FormState
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choisissez un fichier CSV." };
   if (file.size > 5_000_000) return { error: "Le fichier est trop gros (5 Mo maximum)." };
-  const rows = parseContactsCsv(await file.text());
+  const { format, rows } = parseAnyContactsCsv(await file.text());
   if (!rows.length) {
-    return { error: "Aucune adresse email trouvée. Vérifiez que c'est bien un export « Google CSV » de Google Contacts." };
+    return { error: "Aucun contact trouvé. Vérifiez que c'est bien un export « Google CSV » de Google Contacts, ou le fichier Connections.csv de LinkedIn." };
   }
   let created = 0;
   for (const r of rows) {
-    const res = await ensureContact(r.email, { ...r, tags: ["google-contacts", ...(r.tags ?? [])], source: "import" });
+    const tags = format === "linkedin" ? (r.tags ?? []) : ["google-contacts", ...(r.tags ?? [])];
+    const res = await upsertContact({ ...r, tags, source: format === "linkedin" ? "linkedin" : "import" });
     if (res.created) created += 1;
   }
   revalidatePath("/app/contacts");
-  return { ok: `${rows.length} contact(s) lus : ${created} nouvelle(s) fiche(s), ${rows.length - created} déjà connue(s) et complétée(s).` };
+  const what = format === "linkedin" ? "relation(s) LinkedIn lue(s)" : "contact(s) lu(s)";
+  const noEmail = rows.filter((r) => !r.email).length;
+  return {
+    ok: `${rows.length} ${what} : ${created} nouvelle(s) fiche(s), ${rows.length - created} déjà connue(s) et complétée(s).${noEmail ? ` ${noEmail} n'ont pas d'email (téléphone ou LinkedIn seulement).` : ""}`,
+  };
 }

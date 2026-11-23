@@ -47,7 +47,7 @@ main.content { flex: 1; padding: 28px 32px; max-width: 1100px; min-width: 0; }
 .stat .n { font-size: 1.8rem; font-weight: 700; }
 .stat .l { color: var(--muted); font-size: 0.9rem; }
 label { display: block; font-weight: 600; margin: 12px 0 4px; }
-input[type=text], input[type=email], input[type=password], input[type=search], input[type=url], input[type=date], input[type=time], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=search], input[type=url], input[type=tel], input[type=date], input[type=time], textarea, select {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit;
 }
 textarea { min-height: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
@@ -215,6 +215,9 @@ textarea.prose.short { min-height: 90px; }
 
 /* WhatsApp */
 .btn.whatsapp { background: #1f7a4d; border-color: #1f7a4d; color: #fff; }
-.badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin-bottom: 4px; background: var(--bg); border: 1px solid var(--border); }
+.note .badge { font-weight: 600; margin-bottom: 4px; }
 .badge.whatsapp { background: #e3f4ea; border-color: #b9e0c8; color: #1f5c3b; }
 @media (prefers-color-scheme: dark) { .badge.whatsapp { background: #17301f; border-color: #2c5a3c; color: #a6e3bd; } }
+.btn.linkedin { background: #0a66c2; border-color: #0a66c2; color: #fff; }
+.badge.linkedin { background: #e2eefa; border-color: #b7d3f0; color: #0a4f96; }
+@media (prefers-color-scheme: dark) { .badge.linkedin { background: #14273d; border-color: #2b4c72; color: #9cc6f2; } }

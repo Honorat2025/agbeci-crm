@@ -38,7 +38,8 @@ export const contacts = pgTable(
   "contacts",
   {
     id: serial("id").primaryKey(),
-    email: text("email").notNull(),
+    /** Facultatif : une fiche peut n'avoir qu'un téléphone ou un profil LinkedIn. */
+    email: text("email"),
     firstName: text("first_name"),
     lastName: text("last_name"),
     /** D'où vient le contact : formulaire du blog, ajout manuel, import... */
@@ -60,6 +61,8 @@ export const contacts = pgTable(
     jobTitle: text("job_title"),
     phone: text("phone"),
     country: text("country"),
+    /** Adresse du profil LinkedIn (https://www.linkedin.com/in/...). */
+    linkedinUrl: text("linkedin_url"),
     tags: text("tags").array().notNull().default([]),
     /** Ne plus inclure cette personne dans les envois groupés (elle l'a demandé). */
     noBulk: boolean("no_bulk").notNull().default(false),
@@ -68,6 +71,7 @@ export const contacts = pgTable(
   },
   (t) => [
     uniqueIndex("contacts_email_unique").on(t.email),
+    uniqueIndex("contacts_linkedin_unique").on(t.linkedinUrl),
     uniqueIndex("contacts_unsubscribe_token_unique").on(t.unsubscribeToken),
     index("contacts_newsletter_status_idx").on(t.newsletterStatus),
   ],
@@ -220,7 +224,7 @@ export const contactNotes = pgTable(
       .references(() => contacts.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     /** Origine de l'échange noté : note libre, WhatsApp ou appel téléphonique. */
-    channel: text("channel", { enum: ["note", "whatsapp", "appel"] }).notNull().default("note"),
+    channel: text("channel", { enum: ["note", "whatsapp", "linkedin", "appel"] }).notNull().default("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("contact_notes_contact_idx").on(t.contactId, t.createdAt)],

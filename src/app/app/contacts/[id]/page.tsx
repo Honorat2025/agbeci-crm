@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { exchangeStats, getContact, listNotes, NOTE_CHANNELS } from "@/lib/contacts";
+import { contactLabel, exchangeStats, getContact, listNotes, NOTE_CHANNELS } from "@/lib/contacts";
 import { whatsappLink, whatsappNumber } from "@/lib/whatsapp";
 import { listThreads, shortDate } from "@/lib/messages";
 import { addDays, formatAmount, KIND_LABELS, listOpportunities, openTasks, STAGE_LABELS, todayParis } from "@/lib/prospection";
@@ -30,13 +30,13 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   if (!c) notFound();
   const [notes, stats, { threads }, deals, tasks, visios] = await Promise.all([
     listNotes(id),
-    exchangeStats(c.email),
-    listThreads({ folder: "tous", participant: c.email }),
+    c.email ? exchangeStats(c.email) : Promise.resolve({ count: 0, last: null }),
+    c.email ? listThreads({ folder: "tous", participant: c.email }) : Promise.resolve({ threads: [] as Awaited<ReturnType<typeof listThreads>>["threads"] }),
     listOpportunities({ contactId: id }),
     openTasks({ contactId: id }),
     upcomingMeetings({ contactId: id }),
   ]);
-  const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email;
+  const name = contactLabel(c);
   const wa = whatsappNumber(c.phone, c.country);
 
   return (
@@ -45,10 +45,13 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>{name}</h1>
         <div className="row">
+          {c.linkedinUrl && (
+            <a className="btn linkedin" href={c.linkedinUrl} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          )}
           {wa && (
             <a className="btn whatsapp" href={whatsappLink(wa)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
           )}
-          <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(c.email)}`}>Écrire</Link>
+          {c.email && <Link className="btn" href={`/app/messages/nouveau?a=${encodeURIComponent(c.email)}`}>Écrire</Link>}
         </div>
       </div>
       {c.phone && !wa && (
@@ -57,7 +60,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         </p>
       )}
       <p className="muted">
-        {c.email} · {NEWSLETTER[c.newsletterStatus]} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
+        {[c.email, c.phone].filter(Boolean).join(" · ") || "Pas d'email ni de téléphone"}{c.email && <> · {NEWSLETTER[c.newsletterStatus]}</>} · Fiche créée le {c.createdAt.toLocaleDateString("fr-FR")}
         {stats.count > 0 && stats.last && <> · {stats.count} email(s) échangé(s), le dernier le {stats.last.toLocaleDateString("fr-FR")}</>}
       </p>
 
@@ -65,7 +68,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         <h2 style={{ marginTop: 0 }}>Visios</h2>
         <MeetingList rows={visios} showWho={false} />
         <div style={{ marginTop: visios.length ? 12 : 0 }}>
-          <MeetingForm contactId={c.id} defaultTitle="Consultation" defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} />
+          <MeetingForm contactId={c.id} defaultTitle="Consultation" defaultDay={addDays(todayParis(), 2)} defaultMessage={DEFAULT_INVITE} durations={DURATIONS} hasEmail={Boolean(c.email)} />
         </div>
       </div>
 
@@ -110,6 +113,9 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             company: c.company ?? "",
             jobTitle: c.jobTitle ?? "",
             phone: c.phone ?? "",
+            email: c.email ?? "",
+            hasEmail: Boolean(c.email),
+            linkedinUrl: c.linkedinUrl ?? "",
             country: c.country ?? "",
             tags: c.tags.join(", "),
           }}
@@ -153,7 +159,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       <div className="card threads compact">
         <h2 style={{ marginTop: 0 }}>Emails échangés</h2>
         {threads.length === 0 ? (
-          <p className="muted">Aucun email avec cette personne dans les 12 derniers mois.</p>
+          <p className="muted">{c.email ? "Aucun email avec cette personne dans les 12 derniers mois." : "Pas d'adresse email sur cette fiche."}</p>
         ) : (
           <ul>
             {threads.map((t) => (

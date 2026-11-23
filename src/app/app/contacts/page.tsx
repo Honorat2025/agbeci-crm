@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/guard";
-import { listContacts } from "@/lib/contacts";
+import { contactLabel, listContacts } from "@/lib/contacts";
 import { NewContactForm } from "./forms";
 
 const NEWSLETTER: Record<string, string> = {
@@ -24,7 +24,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
       <form className="row card" method="get" style={{ marginTop: 16 }}>
-        <input type="search" name="q" defaultValue={q} placeholder="Nom, email, organisation, pays…" style={{ flex: 1, minWidth: 200 }} />
+        <input type="search" name="q" defaultValue={q} placeholder="Nom, email, téléphone, organisation, pays..." style={{ flex: 1, minWidth: 200 }} />
         {tag && <input type="hidden" name="tag" value={tag} />}
         <button className="btn secondary">Chercher</button>
         {tag && <Link href="/app/contacts">Retirer le filtre « {tag} »</Link>}
@@ -38,16 +38,16 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         ) : (
           <table>
             <thead>
-              <tr><th>Nom</th><th>Email</th><th className="hide-mobile">Organisation</th><th className="hide-mobile">Étiquettes</th></tr>
+              <tr><th>Nom</th><th>Email ou téléphone</th><th className="hide-mobile">Organisation</th><th className="hide-mobile">Étiquettes</th></tr>
             </thead>
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <Link href={`/app/contacts/${c.id}`}>{[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}</Link>
+                    <Link href={`/app/contacts/${c.id}`}>{[c.firstName, c.lastName].filter(Boolean).join(" ") || contactLabel(c)}</Link>
                     {NEWSLETTER[c.newsletterStatus] && <> <span className={`badge ${c.newsletterStatus}`}>{NEWSLETTER[c.newsletterStatus]}</span></>}
                   </td>
-                  <td>{c.email}</td>
+                  <td>{c.email ?? c.phone ?? (c.linkedinUrl ? "LinkedIn" : "")}</td>
                   <td className="hide-mobile">{c.company ?? ""}</td>
                   <td className="hide-mobile">
                     {c.tags.map((t) => (

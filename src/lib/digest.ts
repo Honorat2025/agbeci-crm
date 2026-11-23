@@ -89,7 +89,7 @@ export async function buildDigest(now = new Date()) {
   }
   if (visios.length) {
     lines.push(`Visios aujourd'hui :\n${visios
-      .map((v) => `• ${hm(v.m.startsAt)} : ${v.m.title} avec ${[v.firstName, v.lastName].filter(Boolean).join(" ") || v.email}\n  ${meetingUrl(v.m)}`)
+      .map((v) => `• ${hm(v.m.startsAt)} : ${v.m.title} avec ${[v.firstName, v.lastName].filter(Boolean).join(" ") || v.email || "votre contact"}\n  ${meetingUrl(v.m)}`)
       .join("\n")}`);
   }
   if (now_.length) lines.push(`À faire aujourd'hui :\n${now_.map((t) => `• ${t.t.title}${who(t)}`).join("\n")}`);

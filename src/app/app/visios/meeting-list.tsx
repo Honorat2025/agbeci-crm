@@ -2,6 +2,7 @@ import { describeWhen, shortWhen, type upcomingMeetings } from "@/lib/meetings";
 import { whatsappLink, whatsappNumber } from "@/lib/whatsapp";
 import Link from "next/link";
 import { cancelMeetingAction } from "./actions";
+import { CopyAndOpen } from "./copy-open";
 
 type Row = Awaited<ReturnType<typeof upcomingMeetings>>[number];
 
@@ -25,6 +26,7 @@ export function MeetingList({ rows, showWho = true, empty }: { rows: Row[]; show
           </div>
           <div className="row small">
             <a className="btn" style={{ padding: "4px 12px" }} href={r.url} target="_blank" rel="noopener noreferrer">Rejoindre</a>
+            {r.linkedinUrl && <CopyAndOpen className="btn linkedin" text={waText} href={r.linkedinUrl} label="Copier pour LinkedIn" />}
             {wa && (
               <a className="btn whatsapp" style={{ padding: "4px 12px" }} href={whatsappLink(wa, waText)} target="_blank" rel="noopener noreferrer" title="Ouvre WhatsApp avec l'invitation déjà écrite">
                 Envoyer sur WhatsApp
@@ -33,10 +35,11 @@ export function MeetingList({ rows, showWho = true, empty }: { rows: Row[]; show
             <details>
               <summary className="linkbtn muted">Annuler</summary>
               <form action={cancelMeetingAction} style={{ marginTop: 6 }}>
+                {!r.email && <p className="muted small" style={{ margin: "0 0 6px" }}>Pas d&apos;email sur la fiche : prévenez la personne vous-même.</p>}
                 <input type="hidden" name="id" value={r.m.id} />
                 <input type="hidden" name="contactId" value={r.m.contactId} />
                 {r.m.opportunityId && <input type="hidden" name="opportunityId" value={r.m.opportunityId} />}
-                <button className="btn danger" style={{ padding: "4px 10px" }}>Annuler et prévenir {r.firstName ?? "la personne"}</button>
+                <button className="btn danger" style={{ padding: "4px 10px" }}>{r.email ? `Annuler et prévenir ${r.firstName ?? "la personne"}` : "Annuler la visio"}</button>
               </form>
             </details>
           </div>
