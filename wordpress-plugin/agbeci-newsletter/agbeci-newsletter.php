@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Agbeci Newsletter
- * Description: Formulaire d'inscription à la newsletter, relié à l'application Agbeci CRM. Prévient aussi le CRM à chaque nouvel article publié.
- * Version: 0.1.0
+ * Description: Formulaire d'inscription à la newsletter, relié à l'application Agbeci CRM. Prévient aussi le CRM à chaque nouvel article publié et à chaque demande de document.
+ * Version: 0.2.0
  * Author: Honorat Agbeci
  * Requires PHP: 8.0
  * Text Domain: agbeci-newsletter
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const AGBECI_NL_VERSION = '0.1.0';
+const AGBECI_NL_VERSION = '0.2.0';
 const AGBECI_NL_OPTION = 'agbeci_newsletter_settings';
 
 /** Réglages avec valeurs par défaut. */
@@ -118,6 +118,65 @@ add_action('transition_post_status', function (string $new, string $old, WP_Post
         ]),
     ]);
 }, 10, 3);
+
+/* -------------------------------------------------------------------------
+ * Demande de document (extension « Agbeci Document Gate ») : fiche dans le CRM
+ * ---------------------------------------------------------------------- */
+
+/**
+ * La demande est enregistrée en plusieurs fois (article, puis email, puis document).
+ * On attend la dernière information, puis on prévient le CRM une minute plus tard,
+ * en tâche de fond, pour ne jamais ralentir le visiteur.
+ */
+add_action('added_post_meta', function ($meta_id, $post_id, $meta_key): void {
+    if ($meta_key !== '_agbeci_document_id' || get_post_type($post_id) !== 'agbeci_doc_access') {
+        return;
+    }
+    if (!wp_next_scheduled('agbeci_nl_push_doc_request', [(int) $post_id])) {
+        wp_schedule_single_event(time() + 60, 'agbeci_nl_push_doc_request', [(int) $post_id]);
+    }
+}, 10, 3);
+
+add_action('agbeci_nl_push_doc_request', 'agbeci_nl_push_doc_request');
+
+function agbeci_nl_push_doc_request(int $post_id): void
+{
+    $s = agbeci_nl_settings();
+    $post = get_post($post_id);
+    if (!$post || empty($s['api_url']) || empty($s['shared_secret']) || get_post_meta($post_id, '_agbeci_crm_sent', true)) {
+        return;
+    }
+    $email = (string) get_post_meta($post_id, '_agbeci_email', true);
+    if (!is_email($email)) {
+        return;
+    }
+    $doc = (string) get_post_meta($post_id, '_agbeci_document_title', true);
+    $response = wp_remote_post(rtrim($s['api_url'], '/') . '/api/wp/contacts', [
+        'timeout' => 15,
+        'headers' => [
+            'Content-Type' => 'application/json',
+            'X-Agbeci-Secret' => $s['shared_secret'],
+        ],
+        'body' => wp_json_encode([
+            'contacts' => [[
+                'email' => $email,
+                'name' => html_entity_decode($post->post_title, ENT_QUOTES, 'UTF-8'),
+                'note' => sprintf('Demande du document « %s » sur le site, le %s', $doc ?: 'sans titre', mysql2date('d/m/Y', $post->post_date)),
+                'tag' => 'document',
+            ]],
+        ]),
+    ]);
+    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+        update_post_meta($post_id, '_agbeci_crm_sent', current_time('mysql'));
+    } else {
+        // Nouvel essai dans une heure (le CRM était peut-être en cours de mise à jour).
+        $tries = (int) get_post_meta($post_id, '_agbeci_crm_tries', true) + 1;
+        update_post_meta($post_id, '_agbeci_crm_tries', $tries);
+        if ($tries < 5) {
+            wp_schedule_single_event(time() + HOUR_IN_SECONDS, 'agbeci_nl_push_doc_request', [$post_id]);
+        }
+    }
+}
 
 /* -------------------------------------------------------------------------
  * Page de réglages

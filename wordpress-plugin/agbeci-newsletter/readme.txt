@@ -1,7 +1,7 @@
 === Agbeci Newsletter ===
 Requires at least: 6.0
 Requires PHP: 8.0
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 
 Formulaire d'inscription à la newsletter relié à l'application Agbeci CRM.
 

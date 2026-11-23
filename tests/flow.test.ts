@@ -227,3 +227,52 @@ test("le site WordPress peut créer des fiches (demandes de documents)", { skip 
   const notes = await getDb().select().from(schema.contactNotes).where(eq(schema.contactNotes.contactId, c!.id));
   assert.equal(notes.length, 1);
 });
+
+test("prospection : affaires, rappels, envoi groupé personnalisé", { skip }, async () => {
+  const { ensureContact } = await import("../src/lib/contacts");
+  const p = await import("../src/lib/prospection");
+  const db = getDb();
+  const a = await ensureContact("fatou@clinique.sn", { firstName: "Fatou", company: "Clinique Dakar", tags: ["prospect"], source: "test" });
+  const b = await ensureContact("yao@ong.ci", { firstName: "Yao", tags: ["prospect"], source: "test" });
+  await ensureContact("refus@ong.ci", { firstName: "Non", tags: ["prospect"], source: "test" });
+  const refus = (await db.select().from(schema.contacts).where(eq(schema.contacts.email, "refus@ong.ci")))[0]!;
+  await p.setNoBulk(refus.id, true);
+
+  const id = await p.createOpportunity({
+    title: "Audit qualité", kind: "consultation", stage: "piste", contactId: a.id,
+    organization: "Clinique Dakar", country: "Sénégal", amount: 2_000_000, currency: "XOF", source: null, notes: "",
+  });
+  const today = p.todayParis();
+  await p.addTask({ title: "Relancer", dueOn: p.addDays(today, -1), opportunityId: id });
+  await p.addTask({ title: "Plus tard", dueOn: p.addDays(today, 10), contactId: b.id });
+
+  // Le rappel d'une affaire est rattaché au contact de l'affaire.
+  const due = await p.openTasks({ until: today });
+  assert.deepEqual(due.map((r) => [r.t.title, r.t.contactId, r.opportunityTitle]), [["Relancer", a.id, "Audit qualité"]]);
+  const [list] = await p.listOpportunities({ contactId: a.id });
+  assert.equal(list!.nextTask, p.addDays(today, -1));
+
+  // Reporter un rappel en retard part d'aujourd'hui.
+  await p.postponeTask(due[0]!.t.id, 1);
+  assert.equal((await p.openTasks({ opportunityId: id }))[0]!.t.dueOn, p.addDays(today, 1));
+  await p.setTaskDone(due[0]!.t.id, true);
+  assert.equal((await p.openTasks({ opportunityId: id })).length, 0);
+
+  assert.deepEqual((await p.pipelineSummary())[0], { stage: "piste", count: 1, totals: [p.formatAmount(2_000_000, "XOF")] });
+  await p.moveOpportunity(id, "gagnee");
+  assert.ok((await p.getOpportunity(id))!.closedAt instanceof Date);
+
+  // Envoi groupé : un email par personne, sans celle qui a refusé.
+  const { count } = await p.queueBulk({ tag: "prospect", subject: "Offre pour {organisation}", body: "Bonjour {prenom}," });
+  assert.equal(count, 2);
+  const mails = await db.select().from(schema.outbox).where(eq(schema.outbox.subject, "Offre pour Clinique Dakar"));
+  assert.equal(mails.length, 1);
+  assert.equal(mails[0]!.toEmail, "fatou@clinique.sn");
+  assert.match(mails[0]!.text, /^Bonjour Fatou,\n\nSi vous préférez/);
+  const yao = await db.select().from(schema.outbox).where(eq(schema.outbox.toEmail, "yao@ong.ci"));
+  assert.equal(yao[0]!.subject, "Offre pour");
+  await assert.rejects(p.queueBulk({ tag: "inconnue", subject: "x", body: "y" }), /Aucun contact/);
+
+  await p.deleteOpportunity(id);
+  assert.equal(await p.getOpportunity(id), null);
+});
