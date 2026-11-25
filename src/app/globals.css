@@ -83,6 +83,11 @@ textarea.prose.short { min-height: 90px; }
 .threads > p { padding: 20px; margin: 0; }
 .threads ul { list-style: none; margin: 0; padding: 0; }
 .threads li + li { border-top: 1px solid var(--border); }
+.threads li:has(> .pick) { display: flex; align-items: center; }
+.threads li > .pick { width: 18px; height: 18px; margin: 0 0 0 16px; flex: none; }
+.threads li:has(> .pick) > a { flex: 1; min-width: 0; }
+.threads li.picked { background: var(--bg); }
+.thread-tools { min-height: 44px; margin-bottom: 8px; align-items: center; }
 .threads li a { display: grid; grid-template-columns: minmax(120px, 220px) 1fr auto; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); align-items: baseline; }
 .threads li a:hover { background: var(--bg); }
 .threads li .who, .threads li .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -226,3 +231,7 @@ textarea.prose.short { min-height: 90px; }
 .az { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; position: sticky; top: 0; z-index: 2; background: var(--bg, #f6f6f3); padding: 6px 0; }
 .az a { background: var(--surface); min-width: 30px; padding: 4px 6px; text-align: center; border: 1px solid var(--border, #d9d9d4); border-radius: 6px; text-decoration: none; font-weight: 600; }
 tr[id^="lettre-"] { scroll-margin-top: 60px; }
+
+/* Suppression : bouton rouge sobre */
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn.secondary.danger { background: transparent; color: var(--danger); border-color: var(--danger); }

@@ -8,6 +8,7 @@ import { formatDate, getThread, replyTarget } from "@/lib/messages";
 import { getMailSettings } from "@/lib/settings";
 import { ReplyForm } from "../compose-forms";
 import { EmailFrame } from "../email-frame";
+import { TrashThreadButton } from "../thread-list";
 import { createContactFromAddress } from "../../contacts/actions";
 
 function sizeLabel(bytes: number) {
@@ -53,7 +54,7 @@ export default async function ThreadPage({
     <>
       <p><Link href="/app/messages">← Messagerie</Link></p>
       <h1>{thread[0]!.subject || "(sans objet)"}</h1>
-      <p>
+      <p className="row">
         <Link
           className="btn secondary"
           href={`/app/calendrier/nouveau?${new URLSearchParams({
@@ -64,6 +65,7 @@ export default async function ThreadPage({
         >
           📅 Ajouter au calendrier
         </Link>
+        <TrashThreadButton threadId={threadId} />
       </p>
 
       <div className="card">

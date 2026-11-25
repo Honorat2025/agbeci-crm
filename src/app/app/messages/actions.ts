@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { requestSync } from "@/lib/mailbox";
+import { requestSync, trashThreads } from "@/lib/mailbox";
 import { queueNewMessage, queueReply } from "@/lib/messages";
 import { emailSchema } from "@/lib/validation";
 
@@ -53,4 +53,13 @@ export async function refreshMailbox() {
   await requireAdmin();
   await requestSync();
   revalidatePath("/app/messages");
+}
+
+/** Met une ou plusieurs conversations dans la Corbeille de Gmail. */
+export async function trashConversations(form: FormData) {
+  await requireAdmin();
+  const n = await trashThreads(form.getAll("thread").map(String));
+  const dossier = String(form.get("dossier") ?? "");
+  revalidatePath("/app/messages");
+  redirect(`/app/messages?${new URLSearchParams({ ...(dossier ? { dossier } : {}), supprime: String(n) })}`);
 }

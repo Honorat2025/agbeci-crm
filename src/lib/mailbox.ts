@@ -1,7 +1,8 @@
 /**
  * Recopie de la boîte Gmail dans le CRM, par IMAP (mot de passe d'application).
  * On lit le dossier « Tous les messages » : il contient les emails reçus et envoyés.
- * Gmail reste la référence : rien n'est jamais supprimé chez Gmail.
+ * Gmail reste la référence. Une suppression depuis le CRM met le message dans la Corbeille de Gmail
+ * (récupérable pendant 30 jours), jamais de suppression définitive.
  */
 import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser, type AddressObject, type ParsedMail } from "mailparser";
@@ -304,6 +305,31 @@ export async function markThreadSeen(threadId: string) {
   return rows.length;
 }
 
+/**
+ * Met des conversations à la corbeille : elles disparaissent tout de suite du CRM, et le worker
+ * les déplace dans la Corbeille de Gmail au prochain passage (Gmail les garde 30 jours).
+ */
+export async function trashThreads(threadIds: string[]): Promise<number> {
+  const ids = [...new Set(threadIds.filter(Boolean))].slice(0, 200);
+  if (!ids.length) return 0;
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const rows = await tx.delete(mailMessages).where(inArray(mailMessages.threadId, ids)).returning({ uid: mailMessages.uid, threadId: mailMessages.threadId });
+    if (rows.length) await tx.insert(mailActions).values({ action: "trash", uids: rows.map((r) => r.uid) });
+    // Rendez-vous du calendrier créés depuis ces conversations : on garde le rendez-vous, sans le lien.
+    await tx.update(schema.events).set({ mailThreadId: null }).where(inArray(schema.events.mailThreadId, ids));
+    return new Set(rows.map((r) => r.threadId)).size;
+  });
+}
+
+/** Dossier Corbeille de Gmail (« [Gmail]/Corbeille » en français, « [Gmail]/Trash » en anglais). */
+async function trashPath(client: ImapFlow): Promise<string> {
+  const boxes = await client.list();
+  const trash = boxes.find((b) => b.specialUse === "\\Trash");
+  if (!trash) throw new Error("Dossier Corbeille de Gmail introuvable");
+  return trash.path;
+}
+
 async function applyPendingActions(client: ImapFlow) {
   const db = getDb();
   const actions = await db.select().from(mailActions).limit(50);
@@ -311,14 +337,25 @@ async function applyPendingActions(client: ImapFlow) {
   const [state] = await db.select().from(mailSync).where(eq(mailSync.id, 1));
   if (!state) return;
   const lock = await client.getMailboxLock(state.mailbox);
+  const done: number[] = [];
   try {
     for (const a of actions) {
-      if (a.action === "seen" && a.uids.length) {
-        await client.messageFlagsAdd(a.uids, ["\\Seen"], { uid: true });
+      // Une action qui échoue ne bloque ni les autres ni la relève ; elle est retentée au passage suivant, pendant 24 h.
+      try {
+        if (a.action === "seen" && a.uids.length) {
+          await client.messageFlagsAdd(a.uids, ["\\Seen"], { uid: true });
+        }
+        if (a.action === "trash" && a.uids.length) {
+          await client.messageMove(a.uids, await trashPath(client), { uid: true });
+        }
+        done.push(a.id);
+      } catch (e) {
+        console.error(`Action Gmail « ${a.action} » impossible :`, e instanceof Error ? e.message : e);
+        if (Date.now() - a.createdAt.getTime() > 86_400_000) done.push(a.id);
       }
     }
-    await db.delete(mailActions).where(inArray(mailActions.id, actions.map((a) => a.id)));
   } finally {
     lock.release();
   }
+  if (done.length) await db.delete(mailActions).where(inArray(mailActions.id, done));
 }
