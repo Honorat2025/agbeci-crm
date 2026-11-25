@@ -415,3 +415,21 @@ test("fusion de fiches : tout est regroupé sur une seule fiche", { skip }, asyn
   assert.equal(t!.contactId, d.id);
   await assert.rejects(mergeContacts([d.id]));
 });
+
+test("suppression : la conversation disparaît du CRM et part dans la corbeille Gmail", { skip }, async () => {
+  const { storeRows, trashThreads } = await import("../src/lib/mailbox");
+  const { getThread } = await import("../src/lib/messages");
+  const db = getDb();
+  const msg = { to: [], cc: [], textBody: "Promo", snippet: "Promo", attachments: [], references: null, inReplyTo: null, messageIdHeader: null,
+    fromEmail: "promo@boutique.fr", fromName: null, participants: ["promo@boutique.fr"], subject: "Soldes", labels: ["\\Inbox"], outgoing: false, seen: false };
+  await storeRows([
+    { ...msg, gmailId: "p1", threadId: "tp", uid: 901, date: new Date("2026-11-24T10:00:00Z") },
+    { ...msg, gmailId: "p2", threadId: "tp", uid: 902, date: new Date("2026-11-24T11:00:00Z") },
+  ]);
+  await db.delete(schema.mailActions);
+  assert.equal(await trashThreads(["tp", "tp", "inconnu"]), 1);
+  assert.equal((await getThread("tp")).length, 0);
+  const actions = await db.select().from(schema.mailActions);
+  assert.deepEqual(actions.map((a) => [a.action, [...a.uids].sort()]), [["trash", [901, 902]]]);
+  assert.equal(await trashThreads([]), 0);
+});

@@ -4,6 +4,7 @@ import { syncState } from "@/lib/mailbox";
 import { listThreads, pendingPersonal, shortDate, type Folder } from "@/lib/messages";
 import { getMailSettings } from "@/lib/settings";
 import { refreshMailbox } from "./actions";
+import { ThreadList } from "./thread-list";
 
 const FOLDERS: { key: Folder; label: string }[] = [
   { key: "reception", label: "Boîte de réception" },
@@ -14,7 +15,7 @@ const FOLDERS: { key: Folder; label: string }[] = [
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dossier?: string; q?: string; page?: string; envoye?: string }>;
+  searchParams: Promise<{ dossier?: string; q?: string; page?: string; envoye?: string; supprime?: string }>;
 }) {
   await requireAdmin();
   const sp = await searchParams;
@@ -89,30 +90,29 @@ export default async function MessagesPage({
         <p className="muted small">Recopie de vos emails des 12 derniers mois en cours. Les plus récents sont déjà là.</p>
       )}
 
-      <div className="card threads">
-        {threads.length === 0 ? (
+      {Number(sp.supprime) > 0 && (
+        <p className="success">
+          {Number(sp.supprime)} conversation(s) mise(s) dans la corbeille de Gmail. En cas d&apos;erreur, vous la retrouvez dans la Corbeille de Gmail pendant 30 jours.
+        </p>
+      )}
+      {threads.length === 0 ? (
+        <div className="card threads">
           <p className="muted">{sp.q ? "Aucun message ne correspond à cette recherche." : "Aucun message pour l'instant."}</p>
-        ) : (
-          <ul>
-            {threads.map((t) => (
-              <li key={t.threadId} className={t.unseen > 0 ? "unseen" : undefined}>
-                <Link prefetch={false} href={`/app/messages/${encodeURIComponent(t.threadId)}`}>
-                  <span className="who">
-                    {t.outgoingLast && folder !== "envoyes" ? "Moi, " : ""}
-                    {t.people.join(", ") || "Moi"}
-                    {t.count > 1 && <span className="muted"> ({t.count})</span>}
-                  </span>
-                  <span className="what">
-                    <strong>{t.subject}</strong>
-                    <span className="muted"> — {t.snippet}</span>
-                  </span>
-                  <span className="when muted">{shortDate(t.lastDate)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        </div>
+      ) : (
+        <ThreadList
+          folder={folder}
+          rows={threads.map((t) => ({
+            threadId: t.threadId,
+            who: `${t.outgoingLast && folder !== "envoyes" ? "Moi, " : ""}${t.people.join(", ") || "Moi"}`,
+            count: t.count,
+            subject: t.subject,
+            snippet: t.snippet,
+            when: shortDate(t.lastDate),
+            unseen: t.unseen > 0,
+          }))}
+        />
+      )}
       <div className="row">
         {page > 1 && <Link className="btn secondary" href={link({ page: page - 1 })}>← Plus récents</Link>}
         {hasMore && <Link className="btn secondary" href={link({ page: page + 1 })}>Plus anciens →</Link>}
