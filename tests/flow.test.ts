@@ -433,3 +433,19 @@ test("suppression : la conversation disparaît du CRM et part dans la corbeille 
   assert.deepEqual(actions.map((a) => [a.action, [...a.uids].sort()]), [["trash", [901, 902]]]);
   assert.equal(await trashThreads([]), 0);
 });
+
+test("dossier « Non lus » : seulement les conversations non lues de la boîte de réception", { skip }, async () => {
+  const { storeRows, markThreadSeen } = await import("../src/lib/mailbox");
+  const { listThreads } = await import("../src/lib/messages");
+  const msg = { to: [], cc: [], textBody: "x", snippet: "x", attachments: [], references: null, inReplyTo: null, messageIdHeader: null,
+    fromEmail: "kofi@univ.tg", fromName: null, participants: ["kofi@univ.tg"], subject: "Question", outgoing: false };
+  await storeRows([
+    { ...msg, gmailId: "u1", threadId: "tu1", uid: 951, labels: ["\\Inbox"], seen: false, date: new Date("2026-11-25T10:00:00Z") },
+    { ...msg, gmailId: "u2", threadId: "tu2", uid: 952, labels: ["\\Inbox"], seen: true, date: new Date("2026-11-25T11:00:00Z") },
+    { ...msg, gmailId: "u3", threadId: "tu3", uid: 953, labels: [], seen: false, date: new Date("2026-11-25T12:00:00Z") },
+  ]);
+  const ids = async () => (await listThreads({ folder: "nonlus" })).threads.map((t) => t.threadId).filter((t) => t.startsWith("tu"));
+  assert.deepEqual(await ids(), ["tu1"]);
+  await markThreadSeen("tu1");
+  assert.deepEqual(await ids(), []);
+});

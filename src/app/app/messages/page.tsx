@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/guard";
 import { syncState } from "@/lib/mailbox";
-import { listThreads, pendingPersonal, shortDate, type Folder } from "@/lib/messages";
+import { listThreads, pendingPersonal, shortDate, unseenInboxCount, type Folder } from "@/lib/messages";
 import { getMailSettings } from "@/lib/settings";
 import { refreshMailbox } from "./actions";
 import { ThreadList } from "./thread-list";
 
 const FOLDERS: { key: Folder; label: string }[] = [
+  { key: "nonlus", label: "Non lus" },
   { key: "reception", label: "Boîte de réception" },
   { key: "envoyes", label: "Envoyés" },
   { key: "tous", label: "Tous les messages" },
@@ -15,7 +16,7 @@ const FOLDERS: { key: Folder; label: string }[] = [
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dossier?: string; q?: string; page?: string; envoye?: string; supprime?: string }>;
+  searchParams: Promise<{ dossier?: string; q?: string; page?: string; envoye?: string; supprime?: string; lus?: string }>;
 }) {
   await requireAdmin();
   const sp = await searchParams;
@@ -32,10 +33,11 @@ export default async function MessagesPage({
     );
   }
   const page = Math.max(1, Number(sp.page) || 1);
-  const [{ threads, hasMore }, state, pending] = await Promise.all([
+  const [{ threads, hasMore }, state, pending, unseen] = await Promise.all([
     listThreads({ folder, q: sp.q, page }),
     syncState(),
     pendingPersonal(),
+    unseenInboxCount(),
   ]);
   const link = (p: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();
@@ -60,6 +62,7 @@ export default async function MessagesPage({
         {FOLDERS.map((f) => (
           <Link key={f.key} href={link({ dossier: f.key, page: 1 })} aria-current={f.key === folder ? "page" : undefined}>
             {f.label}
+            {f.key === "nonlus" && unseen > 0 && <span className="count">{unseen}</span>}
           </Link>
         ))}
       </nav>
@@ -95,9 +98,13 @@ export default async function MessagesPage({
           {Number(sp.supprime)} conversation(s) mise(s) dans la corbeille de Gmail. En cas d&apos;erreur, vous la retrouvez dans la Corbeille de Gmail pendant 30 jours.
         </p>
       )}
+      {Number(sp.lus) > 0 && <p className="success">{Number(sp.lus)} conversation(s) marquée(s) comme lue(s).</p>}
+      {folder === "nonlus" && threads.length > 0 && (
+        <p className="muted small">Les emails non lus de votre boîte de réception. Une conversation quitte cette liste dès que vous l&apos;ouvrez.</p>
+      )}
       {threads.length === 0 ? (
         <div className="card threads">
-          <p className="muted">{sp.q ? "Aucun message ne correspond à cette recherche." : "Aucun message pour l'instant."}</p>
+          <p className="muted">{sp.q ? "Aucun message ne correspond à cette recherche." : folder === "nonlus" ? "Bravo, tout est lu ! Aucun email en attente." : "Aucun message pour l'instant."}</p>
         </div>
       ) : (
         <ThreadList

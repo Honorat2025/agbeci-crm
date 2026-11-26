@@ -24,6 +24,9 @@ export function ThreadList({ rows, folder }: { rows: ThreadRow[]; folder: string
           <input type="checkbox" checked={all} onChange={() => { setConfirm(false); setPicked(all ? [] : rows.map((r) => r.threadId)); }} aria-label="Tout sélectionner" />
           <span>{picked.length ? `${picked.length} sélectionnée(s)` : "Tout sélectionner"}</span>
         </label>
+        {picked.length > 0 && !confirm && rows.some((r) => r.unseen && picked.includes(r.threadId)) && (
+          <button name="faire" value="lu" className="btn secondary">✓ Marquer comme lu</button>
+        )}
         {picked.length > 0 && !confirm && (
           <button type="button" className="btn secondary danger" onClick={() => setConfirm(true)}>🗑 Mettre à la corbeille</button>
         )}
