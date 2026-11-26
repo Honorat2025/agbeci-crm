@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/guard";
-import { requestSync, trashThreads } from "@/lib/mailbox";
+import { markThreadSeen, requestSync, trashThreads } from "@/lib/mailbox";
 import { queueNewMessage, queueReply } from "@/lib/messages";
 import { emailSchema } from "@/lib/validation";
 
@@ -58,8 +58,18 @@ export async function refreshMailbox() {
 /** Met une ou plusieurs conversations dans la Corbeille de Gmail. */
 export async function trashConversations(form: FormData) {
   await requireAdmin();
+  if (form.get("faire") === "lu") return markConversationsSeen(form);
   const n = await trashThreads(form.getAll("thread").map(String));
   const dossier = String(form.get("dossier") ?? "");
   revalidatePath("/app/messages");
   redirect(`/app/messages?${new URLSearchParams({ ...(dossier ? { dossier } : {}), supprime: String(n) })}`);
+}
+
+/** Marque les conversations cochées comme lues (dans le CRM et dans Gmail). */
+async function markConversationsSeen(form: FormData) {
+  const ids = [...new Set(form.getAll("thread").map(String))].slice(0, 200);
+  for (const id of ids) await markThreadSeen(id);
+  const dossier = String(form.get("dossier") ?? "");
+  revalidatePath("/app", "layout");
+  redirect(`/app/messages?${new URLSearchParams({ ...(dossier ? { dossier } : {}), lus: String(ids.length) })}`);
 }

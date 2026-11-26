@@ -10,7 +10,7 @@ import { getMailSettings } from "./settings";
 
 const { mailMessages, outbox, contacts } = schema;
 
-export type Folder = "reception" | "envoyes" | "tous";
+export type Folder = "nonlus" | "reception" | "envoyes" | "tous";
 
 export type ThreadSummary = {
   threadId: string;
@@ -52,7 +52,8 @@ export async function listThreads(opts: { folder?: Folder; q?: string; page?: nu
       SELECT DISTINCT thread_id FROM mail_messages m
       WHERE (${folder} = 'tous'
           OR (${folder} = 'reception' AND '\\Inbox' = ANY(m.labels))
-          OR (${folder} = 'envoyes' AND m.outgoing))
+          OR (${folder} = 'envoyes' AND m.outgoing)
+          OR (${folder} = 'nonlus' AND NOT m.seen AND '\\Inbox' = ANY(m.labels)))
         AND (${q}::text IS NULL OR m.subject ILIKE ${q} OR m.from_email ILIKE ${q} OR m.from_name ILIKE ${q} OR m.text_body ILIKE ${q})
         AND (${participant}::text IS NULL OR ${participant} = ANY(m.participants))
     ),
